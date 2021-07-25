@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Tuple
-from konlpy.tag import Komoran
 
 
 def get_kw_and_replacement(keyword: str):
@@ -9,14 +8,15 @@ def get_kw_and_replacement(keyword: str):
     elif keyword == ')':
         replacement = "ENDCONDITIONAL"
     else:
-        replacement = keyword[1:-1] + "MMMMMMMMMMM"
+        replacement = keyword[1:-1] + "MMMM"
     return keyword, replacement
+
 
 def get_kw_from_replacement(replacement: str):
     return [kw for kw, rpl in KEYWORDS_AND_REPLACEMENT if rpl == replacement][0]
 
 
-KEYWORDS = ['<VSTEM>', '<ADJSTEM>', '≤NSTEM>', '<WORDS>', '<WORD>', '(', ')']
+KEYWORDS = ['<VSTEM>', '<ADJSTEM>', '≤NSTEM>', '<WORDS>', '<WORD>', '<VENDING>', '(', ')']
 KEYWORDS_AND_REPLACEMENT = [get_kw_and_replacement(kw) for kw in KEYWORDS]
 POS_TAG_NOT_WORD = ['SC', 'SE', 'SF', 'SSC', 'SSO']
 
@@ -25,7 +25,7 @@ class State:
     def __init__(self, index: int, start=False):
         self.index = index
         self.start = start
-        self.transitions = []
+        self.transitions: [StateTransition] = []
 
     def add_transition(self, new_state: State, content=None, pos_tag=None):
         self.transitions.append(StateTransition(new_state, content, pos_tag))
@@ -33,9 +33,10 @@ class State:
     def is_final(self):
         return len(self.transitions) == 0
 
-    def __str__(self) -> str:
+    def __str__(self, already_printed=[]) -> str:
+        already_printed.append(self.index)
         transitions = "\n".join([f'--> {t}' for t in self.transitions])
-        other_states = "\n".join([f'{t.new_state}' for t in self.transitions])
+        other_states = "\n".join([f'{t.new_state.__str__(already_printed)}' for t in self.transitions if t.new_state.index not in already_printed])
         return f"State({self.index})\n{transitions}\n{other_states}"
 
 class StateTransition:
@@ -63,8 +64,10 @@ class StateTransition:
                 can_do_it = can_do_it and post_tag[0] == 'V'
             elif self.post_tag == 'NSTEM':
                 can_do_it = can_do_it and post_tag[0] == 'N'
+            elif self.post_tag == 'VENDING':
+                can_do_it = can_do_it and post_tag[0] == 'E'
             elif self.post_tag == 'WORDS' or self.post_tag == 'WORD':
-                can_do_it = can_do_it and POS_TAG_NOT_WORD.index(post_tag[0]) < 0
+                can_do_it = can_do_it and post_tag[0] not in POS_TAG_NOT_WORD
         return can_do_it
 
 
@@ -87,9 +90,6 @@ class SearchPattern:
         tags = pos_tagger.pos(my_pattern)
         # Remove punctuation and none korean words
         self.__fix_words = [word for (word, word_type) in tags if word_type[0] != 'S']
-        #print(my_pattern)
-        #print(tags)
-        #[('여기', 'NP'), ('는', 'JX'), ('VSTEMMMMMMMMMMMM', 'SL'), ('STARTCONDITIONAL', 'SL'), ('교실', 'NNP'), ('ENDCONDITIONAL', 'SL'), ('이', 'VCP'), ('ㅂ니다', 'EC')]
 
         start = State(-1, start=True)
 
@@ -99,22 +99,27 @@ class SearchPattern:
         for content, pos_tag in tags:
             if pos_tag == 'SL': # Keywords
                 keyword = get_kw_from_replacement(content)
-                pos_tag = None
+                pos_tag_to_match = None
                 if keyword == '<VSTEM>':
-                    pos_tag = 'VV'
+                    pos_tag_to_match = 'VSTEM'
                 elif keyword == '<ADJSTEM>':
-                    pos_tag = 'VA'
+                    pos_tag_to_match = 'ADJSTEM'
                 elif keyword == '<NSTEM>':
-                    pos_tag = 'NN'
+                    pos_tag_to_match = 'NSTEM'
+                elif keyword == '<VENDING>':
+                    pos_tag_to_match = 'VENDING'
+                elif keyword == '<WORDS>':
+                    for state in states_to_link:
+                        state.add_transition(new_state=state, pos_tag='WORDS')
                 elif keyword == '(':
                     fork_states.extend(states_to_link)
                 elif keyword == ')':
                     states_to_link.append(fork_states.pop())
-                if pos_tag:
+                if pos_tag_to_match:
                     new_state = State(index)
                     index += 1
                     for state in states_to_link:
-                        state.add_transition(new_state=new_state, pos_tag='NN')
+                        state.add_transition(new_state=new_state, pos_tag=pos_tag_to_match)
                     states_to_link = [new_state]
             else: # Content
                 new_state = State(index)
@@ -123,15 +128,23 @@ class SearchPattern:
                     state.add_transition(new_state=new_state, content=content, pos_tag=pos_tag)
                 states_to_link = [new_state]
         self.state_machine = start
-        print(self.state_machine)
-
 
     def get_fix_words(self) -> [str]:
         return self.__fix_words
 
-
-komoran = Komoran()
-
-#print(komoran.pos("여기는 VSTEM 교실입니다"))
-
-SearchPattern("여기는 <VSTEM> (교실)입니다", komoran)
+    def matches(self, haystack: [Tuple[str, str]], start=0) -> bool:
+        curr_states = [self.state_machine]
+        for i in range(start, len(haystack)):
+            lemme = haystack[i]
+            new_states = {}
+            for curr_state in curr_states:
+                for transition in curr_state.transitions:
+                    new_state = transition.new_state
+                    if new_state.index not in new_states and transition.can_lemme_transit(lemme):
+                        if new_state.is_final():
+                            return True
+                        new_states[new_state.index] = new_state
+            curr_states = new_states.values()
+            if len(curr_states) == 0:
+                return False
+        return False
