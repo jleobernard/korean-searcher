@@ -23,11 +23,12 @@ assert search_pattern.matches(komoran.pos("여기는 모르 교실 입니다."))
 assert search_pattern.matches(komoran.pos("여기는 모르 교실 회사를 입니다."))
 assert not search_pattern.matches(komoran.pos("회사를 다닌 지 한 달이 됐어요."))
 
-exit(0)
+SearchPattern("여기 돈이 되다", komoran)
 
 found = find_pattern_in_local_db(pattern="여기", db=corpus)
-assert len(found) == 1
+assert len(found) == 2
 assert found[0] == corpus[0]
+assert found[1] == corpus[1]
 
 found = find_pattern_in_local_db(pattern="여기<WORDS>이다", db=corpus)
 assert len(found) == 2

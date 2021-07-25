@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import Tuple
 
+Lemme = Tuple[str, str]
+Sentence = [Lemme]
 
 def get_kw_and_replacement(keyword: str):
     if keyword == '(':
@@ -76,10 +78,12 @@ class SearchPattern:
     def __init__(self, pattern, pos_tagger):
         """
         The idea here is to :
-        1/ stemize the pattern while preserving its keywords
+        1/ stemize the pattern while preserving its keywords and replacing infinitive
+        form of verbs by a pattern matching the conjugated verb
         2/ build a state-transition machine from the different
         :param pattern: The pattern to look for which is a combination
-         of valid korean words and keywords (see above)
+         of valid korean words and keywords (see above).
+        !!!! Warning !!! <WORDS> must not be a possible start of the pattern
         :param pos_tagger: The position tagger instance
         """
         self.__raw_pattern = pattern
@@ -88,8 +92,14 @@ class SearchPattern:
             my_pattern = my_pattern.replace(keyword, replacement)
         # List tags
         tags = pos_tagger.pos(my_pattern)
+        # TODO trouver une parade pour 이다
+        for i in range(0, len(tags) - 1):
+            tag = tags[i]
+            if tag[1][0] == 'V' and tags[i + 1][0] == '다':
+                tags[i + 1] = (get_kw_and_replacement('<VENDING>')[1], 'SL')
+
         # Remove punctuation and none korean words
-        self.__fix_words = [word for (word, word_type) in tags if word_type[0] != 'S']
+        self.__fix_words = [lemme for lemme in tags if lemme[0] != 'S']
 
         start = State(-1, start=True)
 
@@ -107,7 +117,8 @@ class SearchPattern:
                 elif keyword == '<NSTEM>':
                     pos_tag_to_match = 'NSTEM'
                 elif keyword == '<VENDING>':
-                    pos_tag_to_match = 'VENDING'
+                    for state in states_to_link:
+                        state.add_transition(new_state=state, pos_tag='VENDING')
                 elif keyword == '<WORDS>':
                     for state in states_to_link:
                         state.add_transition(new_state=state, pos_tag='WORDS')
@@ -129,7 +140,7 @@ class SearchPattern:
                 states_to_link = [new_state]
         self.state_machine = start
 
-    def get_fix_words(self) -> [str]:
+    def get_fix_words(self) -> [Lemme]:
         return self.__fix_words
 
     def matches(self, haystack: [Tuple[str, str]], start=0) -> bool:
@@ -148,3 +159,6 @@ class SearchPattern:
             if len(curr_states) == 0:
                 return False
         return False
+
+    def get_starts(self) -> [StateTransition]:
+        return self.state_machine.transitions

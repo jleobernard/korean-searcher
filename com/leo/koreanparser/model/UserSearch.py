@@ -66,4 +66,5 @@ print(komoran.pos(u'모르다'))
 print(komoran.pos(u'을지도 모르다'))
 print(komoran.pos(u'그것은 차입니까'))
 """
-print(komoran.pos(u'이제 자야겠어요'))
+print(komoran.pos(u'을지도 모르다'))
+#print(komoran.pos(u'이제 자야겠어요'))
