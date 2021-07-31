@@ -43,10 +43,10 @@ def val_metrics(model, valid_dl, C=1000):
     for x, y_class, y_bb in valid_dl:
         batch = y_class.shape[0]
         x = x.cuda().float()
-        y_class = y_class.cuda()
+        y_class = y_class.cuda().float()
         y_bb = y_bb.cuda().float()
         out_class, out_bb = model(x)
-        loss_class = F.cross_entropy(out_class, y_class, reduction="sum")
+        loss_class = F.binary_cross_entropy(out_class, y_class.unsqueeze(1), reduction="sum")
         loss_bb = F.l1_loss(out_bb, y_bb, reduction="none").sum(1)
         loss_bb = loss_bb.sum()
         loss = loss_class + loss_bb/C
