@@ -10,61 +10,41 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 from pandas import DataFrame
+from torch.utils.data import Dataset
+
+from com.leo.koreanparser.dl.utils.image_helper import normalize_imagenet
 
 IMAGE_EXTENSIONS = ["jpg", "png"]
 CSV_ANNOTATION_COL_NAMES = ["label", "x0", "y0", "x1", "y1", "filename", "width", "height"]
 
-
-class CompleteAnnotationData:
-
-    def __init__(self, filename: str, has_sub: bool, width: int, height: int, xmin: int, ymin: int, xmax: int, ymax: int):
-        self.filename = filename
-        self.has_sub = has_sub
-        self.width = width
-        self.height = height
-        self.xmin = xmin
-        self.ymin = ymin
-        self.xmax = xmax
-        self.ymax = ymax
-
-
-def get_last_model_params(models_rep) -> Union[str, None]:
-    if not os.path.exists(models_rep):
-        os.makedirs(models_rep)
-    else:
-        file_list = os.listdir(models_rep)
-        file_list = [f for f in file_list if f[-3:] == '.pt']
-        file_list.sort(reverse=True)
-        if len(file_list) > 0:
-            return f"{models_rep}/{file_list[0]}"
-    return None
-
-
 def parse_args():
-    parser = argparse.ArgumentParser(description='Train the model.')
-    parser.add_argument('--data', dest='data_path',
-                        help='Path to the folder containing training data', required=True)
-    parser.add_argument('--models', dest='models_path',
-                        help='Path to the folder containing the models (load and save)', required=True)
-    parser.add_argument('--epoch', dest='epoch', default=10,
-                        help='Path to the folder containing training data')
-    parser.add_argument('--batch', dest='batch', default=10,
-                        help='Number of images per batch')
-    parser.add_argument('--sentence', dest='sentence', default=10,
-                        help='Max length of sentences')
-    parser.add_argument('--lr', dest='lr', default=0.0001,
-                        help='Learning rate')
-    parser.add_argument('--max-lr', dest='max_lr', default=0.1,
-                        help='Max learning rate')
-    parser.add_argument('--load', dest='load', default=False,
-                        help='Load model if true')
-    parser.add_argument('--feat-mul', dest='feat_mul', default=15,
-                        help='Load model if true')
-    parser.add_argument('--val-freq', dest='val_freq', default=5,
-                        help='Validation frequency')
-    parser.add_argument('--val-patience', dest='val_patience', default=5,
-                        help='Validation patience')
-    return parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--data-dir', dest='datadir',
+                        help='path to input images')
+    parser.add_argument('-b', '--batch-size', dest='batch_size',
+                        default=10, help='batch size')
+    parser.add_argument('-e', '--epochs', dest='epochs', default=5,
+                        help='path to input images')
+    return vars(parser.parse_args())
+
+class SubsDataset(Dataset):
+
+    def __init__(self, paths, bb, y, transforms=False):
+        self.transforms = transforms
+        self.paths = paths.values
+        self.bb = bb.values
+        self.y = y.values
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        path = self.paths[idx]
+        y_class = self.y[idx]
+        x, y_bb = transformsXY(path, self.bb[idx], self.transforms)
+        x = normalize_imagenet(x)
+        x = np.rollaxis(x, 2)
+        return x, y_class, y_bb
 
 
 def get_file_extension(file_path):
@@ -202,7 +182,8 @@ def transformsXY(path, bb, transforms):
     return x, mask_to_bb(Y)
 
 
-def load(path):
+def load_train_data(path):
+    print("Loading data....")
     df_train = generate_train_df(path)
     new_paths = []
     new_bbs = []
@@ -215,12 +196,12 @@ def load(path):
         new_bbs.append(new_bb)
     df_train['new_path'] = new_paths
     df_train['new_bb'] = new_bbs
+    print("...data loaded")
     return df_train
 
-df_train = load("/opt/projetcs/ich/korean-searcher/com/leo/koreanparser/dl/data/input")
-nb_subbed = len(df_train[df_train.subs])
-nb_unsubbed = len(df_train[~df_train.subs])
-print(f"There are {nb_subbed} files with subtitles and {nb_unsubbed} files without for a total of {nb_unsubbed + nb_subbed} files")
-
+#df_train = load("/opt/projetcs/ich/korean-searcher/com/leo/koreanparser/dl/data/input")
+#nb_subbed = len(df_train[df_train.subs])
+#nb_unsubbed = len(df_train[~df_train.subs])
+#print(f"There are {nb_subbed} files with subtitles and {nb_unsubbed} files without for a total of {nb_unsubbed + nb_subbed} files")
 
 

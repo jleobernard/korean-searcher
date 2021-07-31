@@ -1,16 +1,31 @@
-import torchvision
-import cv2
-import numpy as np
-import torch
+from torchvision import models
 import torch.nn as nn
-import torch.nn.init as init
 import torch.nn.functional as F
 
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
 
-
 class MyModel(nn.Module):
 
+    def __init__(self, pretrained: bool):
+        super(MyModel, self).__init__()
+        resnet = models.resnet34(pretrained=pretrained)
+        layers = list(resnet.children())[:8]
+        self.features1 = nn.Sequential(*layers[:6])
+        self.features2 = nn.Sequential(*layers[6:])
+        self.classifier = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 1))
+        #self.classifier = nn.Linear(512, 1)
+        self.bb = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 4))
+        #self.bb = nn.Linear(512, 4)
+
+    def forward(self, x):
+        x = self.features1(x)
+        x = self.features2(x)
+        x = F.relu(x)
+        x = nn.AdaptiveAvgPool2d((1, 1))(x)
+        x = x.view(x.shape[0], -1)
+        return F.sigmoid(self.classifier(x)), self.bb(x)
+
+    """
     def ___init__(self):
         super(MyModel, self).__init__()
         self.cnn0 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=(3, 3))
@@ -23,7 +38,7 @@ class MyModel(nn.Module):
         self.max_pool22 = nn.MaxPool2d(kernel_size=2)
         self.max_pool12 = nn.MaxPool2d(kernel_size=(1, 2))
         self.norm512 = nn.BatchNorm2d(512, affine=False)
-        self.final_layer = nn.Linear(2, 5) # out = 4 units for the bounding box + 1 for the score
+        self.final_layer = nn.Linear(512, 5)  # out = 4 units for the bounding box + 1 for the score
 
 
     def initialize_weights(self):
@@ -37,10 +52,10 @@ class MyModel(nn.Module):
         nn.init.xavier_uniform_(self.cnn6.weight)
 
     def forward(self, x):
-        """
+        ""
         :param x: Tensor of shape (batch, channel, height, width)
         :return: Tensor of shape (batch, score, x1, y1, x2, y2)
-        """
+        ""
         batch_size, _, _, _ = x.shape
         x = nn.functional.relu(self.cnn0(x))
         x = self.max_pool22(nn.functional.relu(self.cnn1(x)))
@@ -57,15 +72,16 @@ class MyModel(nn.Module):
         x = self.final_layer(x)
 
         return x
+        """
 
 
-def get_model(pretrained, eval = False):
+def get_model(pretrained: bool = True, eval: bool = False):
     # load the model
-    #model = torchvision.models.detection.ssdlite320_mobilenet_v3_large(pretrained=True)
-    model = MyModel()
+    model = MyModel(pretrained)
     # load the model onto the computation device
     if eval:
         model = model.eval()
+        optimize = None
     else:
         model = model.train()
     return to_best_device(model)
