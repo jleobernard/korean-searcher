@@ -1,3 +1,4 @@
+import torch
 from torchvision import models
 import torch.nn as nn
 import torch.nn.functional as F
@@ -23,7 +24,7 @@ class MyModel(nn.Module):
         x = F.relu(x)
         x = nn.AdaptiveAvgPool2d((1, 1))(x)
         x = x.view(x.shape[0], -1)
-        return F.sigmoid(self.classifier(x)), self.bb(x)
+        return torch.sigmoid(self.classifier(x)), self.bb(x)
 
     """
     def ___init__(self):
