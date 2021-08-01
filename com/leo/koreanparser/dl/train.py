@@ -35,4 +35,4 @@ else:
 parameters = filter(lambda p: p.requires_grad, model.parameters())
 optimizer = torch.optim.Adam(parameters, lr=0.006)
 
-train_epocs(model, optimizer, train_dl, valid_dl, epochs=int(args['epochs']))
+train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=int(args['epochs']))
