@@ -15,7 +15,7 @@ def update_optimizer(optimizer, lr):
         param_group["lr"] = lr
 
 
-def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, C=1000):
+def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10):
     best_model = to_best_device(get_model())
     start = time.time()
     losses = []
@@ -35,7 +35,7 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, C=100
             loss_class = F.binary_cross_entropy(out_class, y_class.unsqueeze(1), reduction="sum")
             loss_bb = F.l1_loss(out_bb, y_bb, reduction="none").sum(1)
             loss_bb = loss_bb.sum()
-            loss = loss_class + loss_bb/C
+            loss = loss_class + loss_bb / 4
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
