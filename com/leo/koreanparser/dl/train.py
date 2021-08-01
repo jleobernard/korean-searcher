@@ -39,5 +39,6 @@ parameters = filter(lambda p: p.requires_grad, model.parameters())
 lrs = [0.01, 0.005, 0.005, 0.0005]
 nb_epochs_per_iteration = ceil(nb_epochs / len(lrs))
 for lr in lrs:
+    print(f"------------- LR is now {lr}")
     optimizer = torch.optim.Adam(parameters, lr=lr)
     train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs_per_iteration)
