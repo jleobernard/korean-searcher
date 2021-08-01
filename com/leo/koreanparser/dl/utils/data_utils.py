@@ -211,7 +211,7 @@ def load_train_data(path, working_dir_path: str):
     return df_train
 
 def show_sample_image(df_train: pd.DataFrame):
-    pass
+    return
     im = cv2.imread(str(df_train.values[2][-2]))
     im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     show_corner_bb(im, df_train.values[2][-1])
