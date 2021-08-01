@@ -4,12 +4,12 @@ from torch.utils.data import DataLoader
 
 from com.leo.koreanparser.dl.model import get_model
 from com.leo.koreanparser.dl.utils.data_utils import load_train_data, parse_args, SubsDataset
-from com.leo.koreanparser.dl.utils.train_utils import train_epocs
+from com.leo.koreanparser.dl.utils.train_utils import train_epocs, do_load_model
 
 args = parse_args()
 
-models_rep = args.models_path
-load_model = 'True' == args.load
+models_rep = args['models_path']
+load_model = 'True' == args['load']
 
 df_train = load_train_data(args["datadir"])
 df_train = df_train.reset_index()
