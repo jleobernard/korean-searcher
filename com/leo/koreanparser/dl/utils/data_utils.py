@@ -25,6 +25,10 @@ def parse_args():
                         default=10, help='batch size')
     parser.add_argument('-e', '--epochs', dest='epochs', default=5,
                         help='path to input images')
+    parser.add_argument('--load', dest='load', default=False,
+                        help='Load model if true')
+    parser.add_argument('--models', dest='models_path',
+                        help='Path to the folder containing the models (load and save)', required=True)
     return vars(parser.parse_args())
 
 class SubsDataset(Dataset):

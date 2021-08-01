@@ -82,7 +82,6 @@ def get_model(pretrained: bool = True, eval: bool = False):
     # load the model onto the computation device
     if eval:
         model = model.eval()
-        optimize = None
     else:
         model = model.train()
     return to_best_device(model)

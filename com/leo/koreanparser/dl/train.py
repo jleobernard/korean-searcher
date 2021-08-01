@@ -8,6 +8,9 @@ from com.leo.koreanparser.dl.utils.train_utils import train_epocs
 
 args = parse_args()
 
+models_rep = args.models_path
+load_model = 'True' == args.load
+
 df_train = load_train_data(args["datadir"])
 df_train = df_train.reset_index()
 X = df_train[['new_path', 'new_bb']]
@@ -22,6 +25,13 @@ train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, drop_last=T
 valid_dl = DataLoader(valid_ds, batch_size=batch_size, drop_last=True)
 
 model = get_model()
+
+if load_model:
+    if not do_load_model(models_rep, model):
+        model.initialize_weights()
+else:
+    model.initialize_weights()
+
 parameters = filter(lambda p: p.requires_grad, model.parameters())
 optimizer = torch.optim.Adam(parameters, lr=0.006)
 
