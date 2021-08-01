@@ -3,7 +3,7 @@ import random
 import os
 import shutil
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Tuple
 
 import cv2
 import numpy as np
@@ -11,6 +11,10 @@ import pandas as pd
 from PIL import Image
 from pandas import DataFrame
 from torch.utils.data import Dataset
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+
 
 from com.leo.koreanparser.dl.utils.image_helper import normalize_imagenet
 
@@ -29,6 +33,8 @@ def parse_args():
                         help='Load model if true')
     parser.add_argument('--models', dest='models_path',
                         help='Path to the folder containing the models (load and save)', required=True)
+    parser.add_argument('--working-dir', dest="working_dir",
+                        help='Path to the folder where we can write stuff', required=True)
     return vars(parser.parse_args())
 
 class SubsDataset(Dataset):
@@ -120,7 +126,7 @@ def create_bb_array(x):
 def read_image(path):
     return cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB)
 
-def resize_image_bb(read_path,write_path,bb,sz):
+def resize_image_bb(read_path,write_path,bb, sz):
     """Resize an image and its bounding box and write image to new path"""
     im = read_image(read_path)
     im_resized = cv2.resize(im, (int(1.49*sz), sz))
@@ -186,12 +192,12 @@ def transformsXY(path, bb, transforms):
     return x, mask_to_bb(Y)
 
 
-def load_train_data(path):
+def load_train_data(path, working_dir_path: str):
     print("Loading data....")
     df_train = generate_train_df(path)
     new_paths = []
     new_bbs = []
-    train_path_resized = Path(f'{path}/resized')
+    train_path_resized = Path(working_dir_path)
     Path(train_path_resized).mkdir(parents=True, exist_ok=True)
     clean_dir(train_path_resized)
     for index, row in df_train.iterrows():
@@ -200,12 +206,27 @@ def load_train_data(path):
         new_bbs.append(new_bb)
     df_train['new_path'] = new_paths
     df_train['new_bb'] = new_bbs
+    show_sample_image(df_train)
     print("...data loaded")
     return df_train
 
-#df_train = load("/opt/projetcs/ich/korean-searcher/com/leo/koreanparser/dl/data/input")
-#nb_subbed = len(df_train[df_train.subs])
-#nb_unsubbed = len(df_train[~df_train.subs])
-#print(f"There are {nb_subbed} files with subtitles and {nb_unsubbed} files without for a total of {nb_unsubbed + nb_subbed} files")
+def show_sample_image(df_train: pd.DataFrame):
+    pass
+    im = cv2.imread(str(df_train.values[2][-2]))
+    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    show_corner_bb(im, df_train.values[2][-1])
+    input("Press Enter to continue.")
 
 
+def create_corner_rect(bb, color='red', normalized: bool = False, size: Tuple[int, int]=(int(1.49*300), 300)):
+    bb = np.array(bb, dtype=np.float32)
+    if normalized:
+        coeffs = np.array([size[0], size[1], size[0], size[1]])
+        bb = bb * coeffs
+    return plt.Rectangle((bb[1], bb[0]), bb[3]-bb[1], bb[2]-bb[0], color=color,
+                         fill=False, lw=3)
+
+def show_corner_bb(im, bb, normalized: bool = False, size: Tuple[int, int]=(int(1.49*300), 300)):
+    plt.imshow(im)
+    plt.gca().add_patch(create_corner_rect(bb, normalized=normalized, size=size))
+    plt.show()

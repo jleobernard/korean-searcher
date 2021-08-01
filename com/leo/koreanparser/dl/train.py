@@ -14,7 +14,15 @@ models_rep = args['models_path']
 load_model = 'True' == args['load']
 nb_epochs = int(args['epochs'])
 
-df_train = load_train_data(args["datadir"])
+model = get_model()
+if load_model:
+    if not do_load_model(models_rep, model):
+        model.initialize_weights()
+else:
+    model.initialize_weights()
+
+
+df_train = load_train_data(args["datadir"], args["working_dir"])
 df_train = df_train.reset_index()
 X = df_train[['new_path', 'new_bb']]
 Y = df_train['subs']
@@ -27,13 +35,6 @@ batch_size = int(args["batch_size"])
 train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, drop_last=True)
 valid_dl = DataLoader(valid_ds, batch_size=batch_size, drop_last=True)
 
-model = get_model()
-
-if load_model:
-    if not do_load_model(models_rep, model):
-        model.initialize_weights()
-else:
-    model.initialize_weights()
 
 parameters = filter(lambda p: p.requires_grad, model.parameters())
 lrs = [0.01, 0.005, 0.005, 0.0005]

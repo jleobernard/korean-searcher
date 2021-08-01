@@ -96,6 +96,12 @@ def get_last_model_params(models_rep) -> Union[str, None]:
             return f"{models_rep}/{file_list[0]}"
     return None
 
+def do_lod_specific_model(model_path: str, model: Module) -> Module:
+    if torch.cuda.is_available():
+        model.load_state_dict(torch.load(model_path))
+    else:
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+    return model
 
 def do_load_model(models_rep: str, model: Module, exit_on_error: bool = False) -> bool:
     last_model_file = get_last_model_params(models_rep)

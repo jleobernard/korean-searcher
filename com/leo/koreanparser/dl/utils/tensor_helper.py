@@ -9,7 +9,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using {} device".format(device))
 
 
-def to_best_device(tensor: torch.Tensor) -> Union[torch.Tensor, Module]:
+def to_best_device(tensor: Union[torch.Tensor, Module]) -> Union[torch.Tensor, Module]:
     if cuda_available:
         tensor = tensor.cuda()
     return tensor
