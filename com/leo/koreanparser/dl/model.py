@@ -26,6 +26,9 @@ class MyModel(nn.Module):
         x = x.view(x.shape[0], -1)
         return torch.sigmoid(self.classifier(x)), self.bb(x)
 
+    def initialize_weights(self):
+        pass
+
     """
     def ___init__(self):
         super(MyModel, self).__init__()
