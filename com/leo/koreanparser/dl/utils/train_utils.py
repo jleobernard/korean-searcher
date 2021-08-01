@@ -44,7 +44,7 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10):
             sum_loss += loss.item()
         losses.append(sum_loss)
         train_loss = sum_loss/total
-        val_loss, val_acc = val_metrics(model, val_dl, C)
+        val_loss, val_acc = val_metrics(model, val_dl)
         print("train_loss %.3f val_loss %.3f val_acc %.3f" % (train_loss, val_loss, val_acc))
         if sum_loss < min_loss:
             do_save = True
@@ -63,7 +63,7 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10):
     return sum_loss/total
 
 
-def val_metrics(model, valid_dl, C=1000):
+def val_metrics(model, valid_dl):
     model.eval()
     total = 0
     sum_loss = 0
@@ -77,7 +77,7 @@ def val_metrics(model, valid_dl, C=1000):
         loss_class = F.binary_cross_entropy(out_class, y_class.unsqueeze(1), reduction="sum")
         loss_bb = F.l1_loss(out_bb, y_bb, reduction="none").sum(1)
         loss_bb = loss_bb.sum()
-        loss = loss_class + loss_bb/C
+        loss = loss_class + loss_bb / 4
         _, pred = torch.max(out_class, 1)
         correct += pred.eq(y_class).sum().item()
         sum_loss += loss.item()
