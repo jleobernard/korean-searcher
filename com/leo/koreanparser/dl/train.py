@@ -10,6 +10,7 @@ args = parse_args()
 
 models_rep = args['models_path']
 load_model = 'True' == args['load']
+nb_epochs = int(args['epochs'])
 
 df_train = load_train_data(args["datadir"])
 df_train = df_train.reset_index()
@@ -33,6 +34,8 @@ else:
     model.initialize_weights()
 
 parameters = filter(lambda p: p.requires_grad, model.parameters())
-optimizer = torch.optim.Adam(parameters, lr=0.006)
-
-train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=int(args['epochs']))
+lrs = [0.01, 0.005, 0.005, 0.0005]
+nb_epochs_per_iteration = nb_epochs / len(lrs)
+for lr in lrs:
+    optimizer = torch.optim.Adam(parameters, lr=lr)
+    train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs_per_iteration)
