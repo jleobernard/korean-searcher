@@ -43,7 +43,8 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10):
             total += batch
             sum_loss += loss.item()
         losses.append(sum_loss)
-        train_loss = sum_loss/total
+        if total > 0:
+            train_loss = sum_loss/total
         val_loss, val_acc = val_metrics(model, val_dl)
         print("train_loss %.3f val_loss %.3f val_acc %.3f" % (train_loss, val_loss, val_acc))
         if sum_loss < min_loss:
