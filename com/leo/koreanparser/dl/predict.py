@@ -29,7 +29,7 @@ test_ds = SubsDataset(pd.DataFrame([{'path': '/tmp/tmp.jpg'}])['path'], pd.DataF
 x, y_class, y_bb = test_ds[0]
 xx = to_best_device(torch.FloatTensor(x[None,]))
 
-model = get_model(pretrained=False, eval=True)
+model = get_model(eval=True)
 do_lod_specific_model(weights_path, model)
 
 out_class, out_bb = model(xx)
@@ -41,4 +41,4 @@ if class_hat[0][0] >= threshold:
 else:
     print(f"L'image ne contient pas de sous-titres ({class_hat[0][0]})")
 #bb_hat = bb_hat.astype(int)
-show_corner_bb(im, bb_hat[0], normalized=True, size=size)
+show_corner_bb(im, bb_hat[0])

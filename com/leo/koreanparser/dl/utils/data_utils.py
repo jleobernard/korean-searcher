@@ -13,7 +13,6 @@ from pandas import DataFrame
 from torch.utils.data import Dataset
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 
 
 from com.leo.koreanparser.dl.utils.image_helper import normalize_imagenet
@@ -35,7 +34,12 @@ def parse_args():
                         help='Path to the folder containing the models (load and save)', required=True)
     parser.add_argument('--working-dir', dest="working_dir",
                         help='Path to the folder where we can write stuff', required=True)
+    parser.add_argument('--lr', dest='lr', default=0.0001,
+                        help='Learning rate')
+    parser.add_argument('--max-lr', dest='max_lr', default=0.1,
+                        help='Max learning rate')
     return vars(parser.parse_args())
+
 
 class SubsDataset(Dataset):
 
@@ -83,7 +87,7 @@ def generate_train_df (data_dir):
         annotation_data.filename = annotation_dir_path + "/" + annotation_data.filename
         annotation_data['x1'] = annotation_data['x0'] + annotation_data['x1']
         annotation_data['y1'] = annotation_data['y0'] + annotation_data['y1']
-        annotation_data['subs'] = True
+        annotation_data['subs'] = 1.
         del annotation_data['label']
         annotations_with_subs.append(annotation_data)
     concatenated_data = pd.concat(annotations_with_subs)
@@ -92,7 +96,7 @@ def generate_train_df (data_dir):
     unsubbed = unsubbed[~unsubbed.filename.isin(subbed_filenames.filename)]
     unsubbed[['x0', 'y0', 'x1', 'y1']] = 0
     unsubbed[['width', 'height']] = unsubbed['filename'].apply(lambda x: Image.open(x).size).tolist()
-    unsubbed['subs'] = False
+    unsubbed['subs'] = 0.
     df_train = pd.concat([concatenated_data, unsubbed])
     df_train['filename'] = df_train['filename'].apply(lambda x: Path(x))
     return df_train

@@ -13,6 +13,8 @@ args = parse_args()
 models_rep = args['models_path']
 load_model = 'True' == args['load']
 nb_epochs = int(args['epochs'])
+learning_rate = float(args['lr'])
+max_lr = float(args['max_lr'])
 
 model = get_model()
 if load_model:
@@ -35,12 +37,11 @@ batch_size = int(args["batch_size"])
 train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, drop_last=True)
 valid_dl = DataLoader(valid_ds, batch_size=batch_size, drop_last=True)
 
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
+                                                max_lr=max_lr,
+                                                steps_per_epoch=int(len(X_train)),
+                                                epochs=nb_epochs,
+                                                anneal_strategy='linear')
 
-parameters = filter(lambda p: p.requires_grad, model.parameters())
-lrs = [0.005, 0.005, 0.0005, 0.0001]
-nb_epochs_per_iteration = ceil(nb_epochs / len(lrs))
-for lr in lrs:
-    print(f"------------- LR is now {lr}")
-    parameters = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = torch.optim.Adam(parameters, lr=lr)
-    train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs_per_iteration)
+train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs)
