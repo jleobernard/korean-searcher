@@ -38,6 +38,8 @@ def parse_args():
                         help='Learning rate')
     parser.add_argument('--max-lr', dest='max_lr', default=0.1,
                         help='Max learning rate')
+    parser.add_argument('-t', '--threshold', dest='threshold', default=0.5,
+                        help='Min score to consider the pciture as containing subtitles')
     return vars(parser.parse_args())
 
 

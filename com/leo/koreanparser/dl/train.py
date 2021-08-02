@@ -15,6 +15,7 @@ load_model = 'True' == args['load']
 nb_epochs = int(args['epochs'])
 learning_rate = float(args['lr'])
 max_lr = float(args['max_lr'])
+threshold = float(args['threshold'])
 
 model = get_model()
 if load_model:
@@ -44,4 +45,4 @@ scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
                                                 epochs=nb_epochs,
                                                 anneal_strategy='linear')
 
-train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs)
+train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs, threshold=threshold)
