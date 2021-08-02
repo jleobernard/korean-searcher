@@ -204,10 +204,18 @@ def load_train_data(path, working_dir_path: str):
     train_path_resized = Path(working_dir_path)
     Path(train_path_resized).mkdir(parents=True, exist_ok=True)
     clean_dir(train_path_resized)
+    not_found: [str] = []
     for index, row in df_train.iterrows():
-        new_path, new_bb = resize_image_bb(row['filename'], train_path_resized, create_bb_array(row.values), 400)
-        new_paths.append(new_path)
-        new_bbs.append(new_bb)
+        filename = row['filename']
+        try:
+            new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values), 400)
+            new_paths.append(new_path)
+            new_bbs.append(new_bb)
+        except:
+            print(f"Could not open file {filename}")
+            not_found.append(filename)
+    if len(not_found) > 0:
+        df_train = df_train[~df_train.filename.isin(not_found)]
     df_train['new_path'] = new_paths
     df_train['new_bb'] = new_bbs
     show_sample_image(df_train)
