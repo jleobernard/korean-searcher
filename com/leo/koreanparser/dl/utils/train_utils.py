@@ -33,7 +33,7 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, thres
             y_bb = to_best_device(y_bb).float()
             out_class, out_bb = model(x)
             loss_class = F.binary_cross_entropy_with_logits(out_class, y_class.unsqueeze(1), reduction="sum")
-            loss_bb = F.l1_loss(out_bb, y_bb, reduction="none").sum(1)
+            loss_bb = F.mse_loss(out_bb, y_bb, reduction="sum").sum(1)
             loss_bb = loss_bb.sum()
             loss = loss_class + loss_bb / 4
             optimizer.zero_grad()
@@ -76,7 +76,7 @@ def val_metrics(model, valid_dl, threshold: float=0.5):
         y_bb = to_best_device(y_bb).float()
         out_class, out_bb = model(x)
         loss_class = F.binary_cross_entropy_with_logits(out_class, y_class.unsqueeze(1), reduction="sum")
-        loss_bb = F.mse_loss(out_bb, y_bb, reduction="none").sum(1)
+        loss_bb = F.mse_loss(out_bb, y_bb, reduction="sum").sum(1)
         loss_bb = loss_bb.sum()
         loss = loss_class + loss_bb / 4
         subbed_hat = out_class >= threshold
