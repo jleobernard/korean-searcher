@@ -26,7 +26,7 @@ class MyModel(nn.Module):
         x = F.relu(x)
         x = nn.AdaptiveAvgPool2d((1, 1))(x)
         x = x.view(x.shape[0], -1)
-        return torch.sigmoid(self.classifier(x)), self.bb(x)
+        return self.classifier(x), self.bb(x)
 
     def initialize_weights(self):
         pass

@@ -25,7 +25,7 @@ im = read_image(args['file'])
 size = (int(1.49*300), 300)
 im = cv2.resize(im, size)
 cv2.imwrite('/tmp/tmp.jpg', cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
-test_ds = SubsDataset(pd.DataFrame([{'path': '/tmp/tmp.jpg'}])['path'], pd.DataFrame([{'bb': np.array([0,0,0,0])}])['bb'],pd.DataFrame([{'y': [0]}])['y'])
+test_ds = SubsDataset(pd.DataFrame([{'path': '/tmp/tmp.jpg'}])['path'], pd.DataFrame([{'bb': np.array([0, 0, 0, 0])}])['bb'],pd.DataFrame([{'y': [0]}])['y'])
 x, y_class, y_bb = test_ds[0]
 xx = to_best_device(torch.FloatTensor(x[None,]))
 
