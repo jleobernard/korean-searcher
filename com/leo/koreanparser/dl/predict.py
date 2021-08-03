@@ -34,11 +34,12 @@ do_lod_specific_model(weights_path, model)
 
 out_class, out_bb = model(xx)
 
-class_hat = out_class.detach().cpu().numpy()
+class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
 bb_hat = out_bb.detach().cpu().numpy()
 if class_hat[0][0] >= threshold:
     print(f"L'image contient des sous-titres ({class_hat[0][0]})")
 else:
     print(f"L'image ne contient pas de sous-titres ({class_hat[0][0]})")
 #bb_hat = bb_hat.astype(int)
+print(f"Predicted bounding box is {bb_hat[0]}")
 show_corner_bb(im, bb_hat[0])
