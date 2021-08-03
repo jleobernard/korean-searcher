@@ -27,14 +27,15 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, thres
         total = 0
         sum_loss = 0
         for x, y_class, y_bb in train_dl:
-            area = x.shape[-1] * x.shape[-2]
+            weights = torch.tensor([x.shape[-1] ** 2, x.shape[-2] ** 2, x.shape[-1] ** 2, x.shape[-2] ** 2])
             batch = y_class.shape[0]
             x = to_best_device(x).float()
             y_class = to_best_device(y_class).float()
             y_bb = to_best_device(y_bb).float()
             out_class, out_bb = model(x)
-            loss_class = F.binary_cross_entropy_with_logits(out_class, y_class.unsqueeze(1), reduction="mean")
-            loss_bb = F.mse_loss(out_bb, y_bb, reduction="mean") / area
+            loss_class = F.binary_cross_entropy_with_logits(out_class, y_class.unsqueeze(1), reduction="sum")
+            #loss_bb = F.mse_loss(out_bb, y_bb, reduction="mean") / area
+            loss_bb = (F.mse_loss(out_bb, y_bb, reduction="none") / weights).sum()
             loss = loss_class + loss_bb
             optimizer.zero_grad()
             loss.backward()
@@ -70,15 +71,18 @@ def val_metrics(model, valid_dl, threshold: float=0.5):
     sum_loss = 0
     correct = 0
     for x, y_class, y_bb in valid_dl:
-        area = x.shape[-1] * x.shape[-2]
+        weights = torch.tensor([x.shape[-1] ** 2, x.shape[-2] ** 2, x.shape[-1] ** 2, x.shape[-2] ** 2])
         batch = y_class.shape[0]
         x = to_best_device(x).float()
         y_class = to_best_device(y_class).float()
         y_bb = to_best_device(y_bb).float()
         out_class, out_bb = model(x)
-        loss_class = F.binary_cross_entropy_with_logits(out_class, y_class.unsqueeze(1), reduction="mean")
-        loss_bb = F.mse_loss(out_bb, y_bb, reduction="mean") / area
+        #loss_class = F.binary_cross_entropy_with_logits(out_class, y_class.unsqueeze(1), reduction="mean")
+        #loss_bb = F.mse_loss(out_bb, y_bb, reduction="mean") / area
         #loss_bb = loss_bb.sum()
+        loss_class = F.binary_cross_entropy_with_logits(out_class, y_class.unsqueeze(1), reduction="sum")
+        #loss_bb = F.mse_loss(out_bb, y_bb, reduction="mean") / area
+        loss_bb = (F.mse_loss(out_bb, y_bb, reduction="none") / weights).sum()
         loss = loss_class + loss_bb
         subbed_hat = out_class >= threshold
         subbed = y_class >= threshold
