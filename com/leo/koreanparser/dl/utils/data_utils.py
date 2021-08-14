@@ -40,6 +40,14 @@ def parse_args():
                         help='Max learning rate')
     parser.add_argument('-t', '--threshold', dest='threshold', default=0.5,
                         help='Min score to consider the pciture as containing subtitles')
+    parser.add_argument('--alpha', dest='alpha', default=1.0,
+                        help='Weight for presence/absence loss')
+    parser.add_argument('--beta', dest='beta', default=1.0,
+                        help='Weight for center spread loss')
+    parser.add_argument('--gamma', dest='gamma', default=1.0,
+                        help='Weights for ratio loss')
+    parser.add_argument('--theta', dest='theta', default=1.0,
+                        help='Weights for difference of dimension loss')
     return vars(parser.parse_args())
 
 

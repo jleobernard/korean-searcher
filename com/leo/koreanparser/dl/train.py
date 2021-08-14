@@ -4,7 +4,7 @@ import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-from com.leo.koreanparser.dl.model import get_model
+from com.leo.koreanparser.dl.model import get_model, ModelLoss
 from com.leo.koreanparser.dl.utils.data_utils import load_train_data, parse_args, SubsDataset
 from com.leo.koreanparser.dl.utils.train_utils import train_epocs, do_load_model
 
@@ -23,6 +23,8 @@ if load_model:
         model.initialize_weights()
 else:
     model.initialize_weights()
+
+loss = ModelLoss([args['alpha'], args['beta'], args['gamma'], args['theta']])
 
 
 df_train = load_train_data(args["datadir"], args["working_dir"])
@@ -52,4 +54,4 @@ optimizer = torch.optim.SGD(params, lr=learning_rate,
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 """
 
-train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs, threshold=threshold, scheduler=scheduler)
+train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs, threshold=threshold, scheduler=scheduler, loss_computer=loss)

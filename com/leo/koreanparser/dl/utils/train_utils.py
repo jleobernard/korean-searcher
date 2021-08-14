@@ -6,16 +6,15 @@ from typing import Union
 import torch
 from torch.nn import Module
 
-from com.leo.koreanparser.dl.model import get_model, model_loss
+from com.leo.koreanparser.dl.model import get_model
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
-import torch.nn.functional as F
 
 def update_optimizer(optimizer, lr):
     for i, param_group in enumerate(optimizer.param_groups):
         param_group["lr"] = lr
 
 
-def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, threshold: float=0.5, scheduler=None):
+def train_epocs(model, optimizer, train_dl, val_dl, models_rep, loss_computer, epochs=10, threshold: float=0.5, scheduler=None):
     best_model = to_best_device(get_model())
     start = time.time()
     losses = []
@@ -32,7 +31,7 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, thres
             y_class = to_best_device(y_class).float()
             y_bb = to_best_device(y_bb).float()
             out_class, out_bb = model(x)
-            loss = model_loss(out_class, y_class, out_bb, y_bb, x)
+            loss = loss_computer.loss(out_class, y_class, out_bb, y_bb)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -43,7 +42,7 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, thres
         losses.append(sum_loss)
         if total > 0:
             train_loss = sum_loss/total
-        val_loss, val_acc = val_metrics(model, val_dl, threshold=threshold)
+        val_loss, val_acc = val_metrics(model, val_dl, loss_computer, threshold=threshold)
         print("train_loss %.3f val_loss %.3f val_acc %.3f" % (train_loss, val_loss, val_acc))
         if sum_loss < min_loss:
             do_save = True
@@ -62,19 +61,18 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, thres
     return sum_loss/total
 
 
-def val_metrics(model, valid_dl, threshold: float=0.5):
+def val_metrics(model, valid_dl, loss_computer, threshold: float=0.5):
     model.eval()
     total = 0
     sum_loss = 0
     correct = 0
     for x, y_class, y_bb in valid_dl:
-        weights = to_best_device(torch.tensor([x.shape[-2] ** 2, x.shape[-1] ** 2, x.shape[-2] ** 2, x.shape[-1] ** 2], requires_grad=False))
         batch = y_class.shape[0]
         x = to_best_device(x).float()
         y_class = to_best_device(y_class).float()
         y_bb = to_best_device(y_bb).float()
         out_class, out_bb = model(x)
-        loss = model_loss(out_class, y_class, out_bb, y_bb, x)
+        loss = loss_computer.loss(out_class, y_class, out_bb, y_bb)
         subbed_hat = out_class >= threshold
         subbed = y_class >= threshold
         correct += subbed_hat.squeeze().eq(subbed).sum().item()
