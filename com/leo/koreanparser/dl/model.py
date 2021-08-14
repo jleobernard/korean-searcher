@@ -61,5 +61,5 @@ class ModelLoss:
         d2 = out_bbs[:, 1] + largeur__hat / 2
         loss_dc = (d1gt - d1) ** 2 + (d2gt - d2) ** 2
         loss_ratio = ((d1gt / d2gt) - (d1 / d2)) ** 2
-        my_loss = self.alpha * loss_class + self.beta * loss_dc.sum() + self.gamma * loss_ratio.sum() + self.theta * ((longueur_gt - d1) ** 2).sum()
+        my_loss = self.alpha * loss_class + self.beta * loss_dc.mean() + self.gamma * loss_ratio.mean() + self.theta * ((longueur_gt - d1) ** 2).mean()
         return my_loss
