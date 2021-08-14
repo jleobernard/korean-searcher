@@ -15,7 +15,7 @@ def update_optimizer(optimizer, lr):
         param_group["lr"] = lr
 
 
-def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, threshold: float=0.5):
+def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, threshold: float=0.5, scheduler=None):
     best_model = to_best_device(get_model())
     start = time.time()
     losses = []
@@ -43,6 +43,7 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, epochs=10, thres
             idx += 1
             total += batch
             sum_loss += loss.item()
+        scheduler.step()
         losses.append(sum_loss)
         if total > 0:
             train_loss = sum_loss/total
