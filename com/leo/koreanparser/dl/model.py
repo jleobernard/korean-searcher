@@ -9,7 +9,7 @@ class MyModel(nn.Module):
 
     def __init__(self):
         super(MyModel, self).__init__()
-        resnet = models.resnet34(pretrained=True)
+        resnet = models.resnet34(pretrained=False)
         for param in resnet.parameters():
             param.requires_grad = False
         layers = list(resnet.children())[:8]
