@@ -50,5 +50,6 @@ scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
 params = [p for p in model.parameters() if p.requires_grad]
 optimizer = torch.optim.SGD(params, lr=learning_rate,
                             momentum=0.9, weight_decay=0.0005)
+lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
 train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs, threshold=threshold)
