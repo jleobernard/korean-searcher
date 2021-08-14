@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import torch
 from torchvision import models
 import torch.nn as nn
@@ -42,3 +44,10 @@ def get_model(eval: bool = False):
         model = model.train()
     return to_best_device(model)
 
+
+def model_loss(out_classes, target_classes, out_bbs, target_bbs, x):
+    weights = to_best_device(torch.tensor([x.shape[-2] ** 2, x.shape[-1] ** 2, x.shape[-2] ** 2, x.shape[-1] ** 2], requires_grad=False))
+    loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
+    loss_bb = (F.mse_loss(out_bbs, target_bbs, reduction="none") / weights).sum()
+    loss = loss_class + loss_bb * 4
+    return loss
