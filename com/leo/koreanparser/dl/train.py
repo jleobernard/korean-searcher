@@ -38,11 +38,17 @@ batch_size = int(args["batch_size"])
 train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, drop_last=True)
 valid_dl = DataLoader(valid_ds, batch_size=batch_size, drop_last=True)
 
+"""
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
                                                 max_lr=max_lr,
                                                 steps_per_epoch=int(len(X_train)),
                                                 epochs=nb_epochs,
                                                 anneal_strategy='linear')
+"""
+
+params = [p for p in model.parameters() if p.requires_grad]
+optimizer = torch.optim.SGD(params, lr=learning_rate,
+                            momentum=0.9, weight_decay=0.0005)
 
 train_epocs(model, optimizer, train_dl, valid_dl, models_rep=models_rep, epochs=nb_epochs, threshold=threshold)
