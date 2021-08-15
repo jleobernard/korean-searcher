@@ -22,7 +22,7 @@ if load_model:
 else:
     model.initialize_weights()
 
-loss = ModelLoss([args['alpha'], args['beta'], args['gamma'], args['theta']])
+loss = ModelLoss([float(args['alpha']), float(args['beta']), float(args['gamma']), float(args['theta'])])
 
 
 df_train = load_train_data(args["datadir"], args["working_dir"])

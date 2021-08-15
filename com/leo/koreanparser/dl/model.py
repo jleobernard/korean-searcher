@@ -46,7 +46,7 @@ def get_model(eval: bool = False):
 
 class ModelLoss:
 
-    def __init__(self, weights: [float], constant_width: float = 300):
+    def __init__(self, weights: [float], constant_width: float = 400):
         self.alpha, self.beta, self.gamma, self.theta = weights
         self.constant_width = constant_width
         self.normalization_factor = constant_width ** 2
