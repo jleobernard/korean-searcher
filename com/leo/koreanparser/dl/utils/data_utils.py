@@ -225,7 +225,7 @@ def load_train_data(path, working_dir_path: str):
     pd.set_option('display.width', 1000)
     for index, row in df_train.iterrows():
         filename = row['filename']
-        print(f"Treating file {filename} ({index})")
+        #print(f"Treating file {filename} ({index})")
         try:
             new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values), 400)
             new_paths.append(new_path)
