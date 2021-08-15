@@ -2,6 +2,7 @@ import argparse
 import random
 import os
 import shutil
+import time
 from pathlib import Path
 from typing import Union, List, Tuple
 
@@ -101,7 +102,7 @@ def generate_train_df (data_dir):
         del annotation_data['label']
         annotations_with_subs.append(annotation_data)
     concatenated_data = pd.concat(annotations_with_subs)
-    unsubbed = pd.DataFrame(columns=['filename'], data=all_images)
+    unsubbed = pd.DataFrame(columns=['filename'], data=[os.path.realpath(f) for f in all_images])
     subbed_filenames = concatenated_data[['filename']].copy()
     unsubbed = unsubbed[~unsubbed.filename.isin(subbed_filenames.filename)]
     unsubbed[['x0', 'y0', 'x1', 'y1']] = 0
@@ -144,7 +145,11 @@ def resize_image_bb(read_path,write_path,bb, sz):
     """Resize an image and its bounding box and write image to new path"""
     im = read_image(read_path)
     im_resized = cv2.resize(im, (int(1.49*sz), sz))
+    plt.imshow(im_resized)
+    plt.show()
     Y_resized = cv2.resize(create_mask(bb, im), (int(1.49*sz), sz))
+    plt.imshow(Y_resized, cmap='gray')
+    plt.show()
     new_path = str(write_path/read_path.parts[-1])
     cv2.imwrite(new_path, cv2.cvtColor(im_resized, cv2.COLOR_RGB2BGR))
     return new_path, mask_to_bb(Y_resized)
@@ -215,8 +220,12 @@ def load_train_data(path, working_dir_path: str):
     Path(train_path_resized).mkdir(parents=True, exist_ok=True)
     clean_dir(train_path_resized)
     not_found: [str] = []
+    pd.set_option('display.max_rows', 500)
+    pd.set_option('display.max_columns', 500)
+    pd.set_option('display.width', 1000)
     for index, row in df_train.iterrows():
         filename = row['filename']
+        print(f"Treating file {filename} ({index})")
         try:
             new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values), 400)
             new_paths.append(new_path)
