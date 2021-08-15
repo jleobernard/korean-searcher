@@ -46,8 +46,9 @@ def get_model(eval: bool = False):
 
 class ModelLoss:
 
-    def __init__(self, weights: [float]):
+    def __init__(self, weights: [float], constant_width: float = 300):
         self.alpha, self.beta, self.gamma, self.theta = weights
+        self.normalization_factor = constant_width ** 2
 
     def loss(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
@@ -59,7 +60,11 @@ class ModelLoss:
         d2gt = target_bbs[:, 1] + largeur_gt / 2
         d1 = out_bbs[:, 0] + longueur_hat / 2
         d2 = out_bbs[:, 1] + largeur__hat / 2
-        loss_dc = (d1gt - d1) ** 2 + (d2gt - d2) ** 2
-        loss_ratio = ((d1gt / d2gt) - (d1 / d2)) ** 2
-        my_loss = self.alpha * loss_class + self.beta * loss_dc.mean() + self.gamma * loss_ratio.mean() + self.theta * ((longueur_gt - d1) ** 2).mean()
+        loss_dc = ((d1gt - d1) ** 2 + (d2gt - d2) ** 2) / self.normalization_factor
+        loss_dc = loss_dc.sum()
+        loss_ratio = (((d1gt / d2gt) - (d1 / d2)) ** 2) / self.normalization_factor
+        loss_ratio = loss_ratio.sum()
+        loss_diff = ((longueur_gt - d1) ** 2) / self.normalization_factor
+        loss_diff = loss_diff.sum()
+        my_loss = self.alpha * loss_class + self.beta * loss_dc + self.gamma * loss_ratio + self.theta * loss_diff
         return my_loss
