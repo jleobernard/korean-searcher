@@ -83,9 +83,8 @@ def val_metrics(model, valid_dl, loss_computer, threshold: float=0.5):
         correct += subbed_hat.squeeze().eq(subbed).sum().item()
         sum_loss += loss.item()
         total += batch
-    appended = np.append([], val_losses)
-    if appended.ndim > 1:
-        appended = appended.sum(axis=1)
+    appended = np.sum(val_losses, axis=0)
+
     return sum_loss/total, correct/total, appended / total
 
 
