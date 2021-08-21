@@ -22,7 +22,7 @@ threshold = float(args["threshold"])
 
 # resizing test image
 im = read_image(args['file'])
-size = (int(1.49*300), 300)
+size = (int(1.49*400), 400)
 im = cv2.resize(im, size)
 cv2.imwrite('/tmp/tmp.jpg', cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
 test_ds = SubsDataset(pd.DataFrame([{'path': '/tmp/tmp.jpg'}])['path'], pd.DataFrame([{'bb': np.array([0, 0, 0, 0])}])['bb'],pd.DataFrame([{'y': [0]}])['y'])

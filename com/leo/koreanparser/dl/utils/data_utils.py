@@ -249,7 +249,7 @@ def show_sample_image(df_train: pd.DataFrame):
     input("Press Enter to continue.")
 
 
-def create_corner_rect(bb, color='red', normalized: bool = False, size: Tuple[int, int]=(int(1.49*300), 300)):
+def create_corner_rect(bb, color='red', normalized: bool = False, size: Tuple[int, int]=(int(1.49*400), 400)):
     bb = np.array(bb, dtype=np.float32)
     if normalized:
         coeffs = np.array([size[0], size[1], size[0], size[1]])
@@ -257,7 +257,7 @@ def create_corner_rect(bb, color='red', normalized: bool = False, size: Tuple[in
     return plt.Rectangle((bb[1], bb[0]), bb[3]-bb[1], bb[2]-bb[0], color=color,
                          fill=False, lw=3)
 
-def show_corner_bb(im, bb, normalized: bool = False, size: Tuple[int, int]=(int(1.49*300), 300)):
+def show_corner_bb(im, bb, normalized: bool = False, size: Tuple[int, int]=(int(1.49*400), 400)):
     plt.imshow(im)
     plt.gca().add_patch(create_corner_rect(bb, normalized=normalized, size=size))
     plt.show()
