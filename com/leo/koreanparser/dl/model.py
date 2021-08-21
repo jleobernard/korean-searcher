@@ -17,11 +17,8 @@ class MyModel(nn.Module):
         layers = list(resnet.children())[:8]
         self.features1 = nn.Sequential(*layers[:6])
         self.features2 = nn.Sequential(*layers[6:])
-        self.classifier = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 512), nn.Linear(512, 1))
-        #self.classifier = nn.Linear(512, 1)
-        self.bb = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 1024), nn.Linear(1024, 1024), nn.Linear(1024, 4))
-        #self.bb = nn.Linear(512, 4)
-
+        self.classifier = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 512), nn.ReLU(), nn.Linear(512, 1))
+        self.bb = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 1024), nn.ReLU(), nn.Linear(1024, 4))
     def forward(self, x):
         x = self.features1(x)
         x = self.features2(x)
