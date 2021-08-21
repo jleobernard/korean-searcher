@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from com.leo.koreanparser.dl.conf import TARGET_HEIGHT, TARGET_WIDTH
 from com.leo.koreanparser.dl.model import get_model
 from com.leo.koreanparser.dl.utils.data_utils import read_image, SubsDataset, show_corner_bb
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
@@ -22,7 +23,7 @@ threshold = float(args["threshold"])
 
 # resizing test image
 im = read_image(args['file'])
-size = (int(1.49*300), 300)
+size = (TARGET_WIDTH, TARGET_HEIGHT)
 im = cv2.resize(im, size)
 cv2.imwrite('/tmp/tmp.jpg', cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
 test_ds = SubsDataset(pd.DataFrame([{'path': '/tmp/tmp.jpg'}])['path'], pd.DataFrame([{'bb': np.array([0, 0, 0, 0])}])['bb'],pd.DataFrame([{'y': [0]}])['y'])
@@ -42,4 +43,4 @@ else:
     print(f"L'image ne contient pas de sous-titres ({class_hat[0][0]})")
 #bb_hat = bb_hat.astype(int)
 print(f"Predicted bounding box is {bb_hat[0]}")
-show_corner_bb(im, bb_hat[0])
+show_corner_bb(im, bb_hat[0] * np.array([TARGET_WIDTH, TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT]))

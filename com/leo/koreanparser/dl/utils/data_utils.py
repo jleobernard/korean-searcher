@@ -15,7 +15,7 @@ from torch.utils.data import Dataset
 
 import matplotlib.pyplot as plt
 
-
+from com.leo.koreanparser.dl.conf import TARGET_WIDTH, TARGET_HEIGHT
 from com.leo.koreanparser.dl.utils.image_helper import normalize_imagenet
 
 IMAGE_EXTENSIONS = ["jpg", "png"]
@@ -141,13 +141,13 @@ def create_bb_array(x):
 def read_image(path):
     return cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB)
 
-def resize_image_bb(read_path,write_path,bb, sz):
+def resize_image_bb(read_path,write_path,bb):
     """Resize an image and its bounding box and write image to new path"""
     im = read_image(read_path)
-    im_resized = cv2.resize(im, (int(1.49*sz), sz))
+    im_resized = cv2.resize(im, (TARGET_WIDTH, TARGET_HEIGHT))
     #plt.imshow(im_resized)
     #plt.show()
-    Y_resized = cv2.resize(create_mask(bb, im), (int(1.49*sz), sz))
+    Y_resized = cv2.resize(create_mask(bb, im), (TARGET_WIDTH, TARGET_HEIGHT))
     #plt.imshow(Y_resized, cmap='gray')
     #plt.show()
     new_path = str(write_path/read_path.parts[-1])
@@ -223,15 +223,13 @@ def load_train_data(path, working_dir_path: str):
     pd.set_option('display.max_rows', 500)
     pd.set_option('display.max_columns', 500)
     pd.set_option('display.width', 1000)
-    resized_height = 400
-    resized_width = resized_height * 1.49
     for index, row in df_train.iterrows():
         filename = row['filename']
         #print(f"Treating file {filename} ({index})")
         try:
-            new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values), resized_height)
+            new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values))
             new_paths.append(new_path)
-            new_bbs.append(new_bb / np.array([resized_height, resized_width, resized_height, resized_width]))
+            new_bbs.append(new_bb / np.array([TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT, TARGET_WIDTH]))
         except:
             print(f"Could not open file {filename}")
             not_found.append(filename)
@@ -251,15 +249,14 @@ def show_sample_image(df_train: pd.DataFrame):
     input("Press Enter to continue.")
 
 
-def create_corner_rect(bb, color='red', normalized: bool = False, size: Tuple[int, int]=(int(1.49*300), 300)):
+def create_corner_rect(bb, color='red'):
     bb = np.array(bb, dtype=np.float32)
-    if normalized:
-        coeffs = np.array([size[0], size[1], size[0], size[1]])
-        bb = bb * coeffs
     return plt.Rectangle((bb[1], bb[0]), bb[3]-bb[1], bb[2]-bb[0], color=color,
                          fill=False, lw=3)
 
-def show_corner_bb(im, bb, normalized: bool = False, size: Tuple[int, int]=(int(1.49*300), 300)):
+def show_corner_bb(im, bb):
     plt.imshow(im)
-    plt.gca().add_patch(create_corner_rect(bb, normalized=normalized, size=size))
+    height, width, _ = im.shape
+    resized_bb = bb * np.array([height, width, height, width])
+    plt.gca().add_patch(create_corner_rect(resized_bb))
     plt.show()
