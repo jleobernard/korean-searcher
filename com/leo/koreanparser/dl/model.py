@@ -18,7 +18,8 @@ class MyModel(nn.Module):
         self.features1 = nn.Sequential(*layers[:6])
         self.features2 = nn.Sequential(*layers[6:])
         self.classifier = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 512), nn.ReLU(), nn.Linear(512, 1))
-        self.bb = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 1024), nn.ReLU(), nn.Linear(1024, 4))
+        self.bb = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 1024), nn.ReLU(), nn.Linear(1024, 4), nn.Sigmoid())
+
     def forward(self, x):
         x = self.features1(x)
         x = self.features2(x)
@@ -50,6 +51,8 @@ class ModelLoss:
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
+        loss_bbs = F.mse_loss(out_bbs, target_bbs, reduction="sum")
+        """
         out_bbs = out_bbs / self.constant_width
         target_bbs = target_bbs / self.constant_width
         longueur_gt = (target_bbs[:, 2] - target_bbs[:, 0]) + 1 # Pour éviter les divisions par zéro
@@ -67,13 +70,15 @@ class ModelLoss:
         loss_diff = ((longueur_gt - longueur_hat) ** 2)
         loss_diff = loss_diff.sum()
         return loss_class, loss_dc, loss_ratio, loss_diff
+        """
+        return loss_class, loss_bbs
 
     def aggregate_losses(self, losses):
-        loss_class, loss_dc, loss_ratio, loss_diff = losses
-        my_loss = self.alpha * loss_class + self.beta * loss_dc + self.gamma * loss_ratio + self.theta * loss_diff
+        loss_class, loss_bbs = losses
+        my_loss = self.alpha * loss_class + self.beta * loss_bbs
         return my_loss
 
     def loss(self, out_classes, target_classes, out_bbs, target_bbs):
-        loss_class, loss_dc, loss_ratio, loss_diff = self.losses(out_classes, target_classes, out_bbs, target_bbs)
-        my_loss = self.alpha * loss_class + self.beta * loss_dc + self.gamma * loss_ratio + self.theta * loss_diff
+        loss_class, loss_bbs = self.losses(out_classes, target_classes, out_bbs, target_bbs)
+        my_loss = self.alpha * loss_class + self.beta * loss_bbs
         return my_loss

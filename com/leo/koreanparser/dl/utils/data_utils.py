@@ -223,13 +223,15 @@ def load_train_data(path, working_dir_path: str):
     pd.set_option('display.max_rows', 500)
     pd.set_option('display.max_columns', 500)
     pd.set_option('display.width', 1000)
+    resized_height = 400
+    resized_width = resized_height * 1.49
     for index, row in df_train.iterrows():
         filename = row['filename']
         #print(f"Treating file {filename} ({index})")
         try:
-            new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values), 400)
+            new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values), resized_height)
             new_paths.append(new_path)
-            new_bbs.append(new_bb)
+            new_bbs.append(new_bb / np.array([resized_height, resized_width, resized_height, resized_width]))
         except:
             print(f"Could not open file {filename}")
             not_found.append(filename)
