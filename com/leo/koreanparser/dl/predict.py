@@ -43,4 +43,4 @@ else:
     print(f"L'image ne contient pas de sous-titres ({class_hat[0][0]})")
 #bb_hat = bb_hat.astype(int)
 print(f"Predicted bounding box is {bb_hat[0]}")
-show_corner_bb(im, bb_hat[0] * np.array([TARGET_WIDTH, TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT]))
+show_corner_bb(im, bb_hat[0])
