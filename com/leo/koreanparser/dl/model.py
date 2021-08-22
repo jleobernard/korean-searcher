@@ -1,9 +1,6 @@
-from typing import Tuple
-
-import torch
-from torchvision import models
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import models
 
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
 
@@ -18,7 +15,9 @@ class MyModel(nn.Module):
         self.features1 = nn.Sequential(*layers[:6])
         self.features2 = nn.Sequential(*layers[6:])
         self.classifier = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 512), nn.ReLU(), nn.Linear(512, 1))
-        self.bb = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 1024), nn.ReLU(), nn.Linear(1024, 4), nn.Sigmoid())
+        self.bb = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 256), nn.ReLU(),
+                                nn.Dropout(), nn.Linear(256, 128), nn.ReLU(),
+                                nn.BatchNorm1d(128), nn.Linear(128, 4), nn.Sigmoid())
 
     def forward(self, x):
         x = self.features1(x)
@@ -51,7 +50,7 @@ class ModelLoss:
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
-        loss_bbs = F.mse_loss(out_bbs, target_bbs, reduction="sum")
+        loss_bbs = F.l1_loss(out_bbs, target_bbs, reduction="sum")
         """
         out_bbs = out_bbs / self.constant_width
         target_bbs = target_bbs / self.constant_width
