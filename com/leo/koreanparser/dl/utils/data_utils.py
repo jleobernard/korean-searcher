@@ -66,7 +66,8 @@ class SubsDataset(Dataset):
     def __getitem__(self, idx):
         path = self.paths[idx]
         y_class = self.y[idx]
-        x, y_bb = transformsXY(path, self.bb[idx], self.transforms)
+        x, y_bb = getNominalData(path, self.bb[idx])
+        # x, y_bb = transformsXY(path, self.bb[idx], self.transforms)
         x = normalize_imagenet(x)
         x = np.rollaxis(x, 2)
         return x, y_class, y_bb
@@ -196,6 +197,11 @@ def random_cropXY(x, Y, r_pix=8):
     xx = crop(x, start_r, start_c, r-2*r_pix, c-2*c_pix)
     YY = crop(Y, start_r, start_c, r-2*r_pix, c-2*c_pix)
     return xx, YY
+
+def getNominalData(path, bb):
+    x = cv2.imread(str(path)).astype(np.float32)
+    x = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)/255
+    return x, bb
 
 def transformsXY(path, bb, transforms):
     x = cv2.imread(str(path)).astype(np.float32)
