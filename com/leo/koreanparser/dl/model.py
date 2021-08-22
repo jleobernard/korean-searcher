@@ -50,7 +50,7 @@ class ModelLoss:
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
-        loss_bbs = F.l1_loss(out_bbs, target_bbs, reduction="sum")
+        loss_bbs = F.mse_loss(out_bbs, target_bbs, reduction="sum")
         """
         out_bbs = out_bbs / self.constant_width
         target_bbs = target_bbs / self.constant_width
