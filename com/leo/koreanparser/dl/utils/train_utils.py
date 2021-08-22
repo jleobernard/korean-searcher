@@ -44,7 +44,8 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, loss_computer, e
         if total > 0:
             train_loss = sum_loss/total
         val_loss, val_acc, val_box_acc = val_metrics(model, val_dl, loss_computer, threshold=threshold)
-        print("train_loss %.3f val_loss %.3f val_acc %.3f val_boxes %.3f" % (train_loss, val_loss, val_acc, val_box_acc))
+        str_box_loss_formatted = " - ".join(["%.3f" % val for val in val_box_acc])
+        print("train_loss %.3f val_loss %.3f val_acc %.3f ---- Loss Boxes : %s" % (train_loss, val_loss, val_acc, str_box_loss_formatted))
         if sum_loss < min_loss:
             do_save = True
             best_model.load_state_dict(model.state_dict())
@@ -75,7 +76,7 @@ def val_metrics(model, valid_dl, loss_computer, threshold: float=0.5):
         y_bb = to_best_device(y_bb).float()
         out_class, out_bb = model(x)
         losses = loss_computer.losses(out_class, y_class, out_bb, y_bb)
-        val_losses.append([losses[1].item()])
+        val_losses.append([lo.item() for lo in losses])
         loss = loss_computer.aggregate_losses(losses)
         subbed_hat = out_class >= threshold
         subbed = y_class >= threshold

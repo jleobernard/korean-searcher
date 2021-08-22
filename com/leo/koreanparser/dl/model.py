@@ -44,13 +44,18 @@ def get_model(eval: bool = False):
 class ModelLoss:
 
     def __init__(self, weights: [float], constant_width: float = 400):
-        self.alpha, self.beta, self.gamma, self.theta = weights
+        self.weights = weights
         self.constant_width = constant_width
         self.normalization_factor = constant_width ** 2
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
         loss_bbs = F.mse_loss(out_bbs, target_bbs, reduction="sum")
+        center_x_hat = (out_bbs[:, 2] + out_bbs[:, 0]) / 2
+        center_x_gt  = (target_bbs[:, 2] + target_bbs[:, 0]) / 2
+        center_y_hat = (out_bbs[:, 3] + out_bbs[:, 1]) / 2
+        center_y_gt  = (target_bbs[:, 3] + target_bbs[:, 1]) / 2
+        loss_centers = ((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2).sum()
         """
         out_bbs = out_bbs / self.constant_width
         target_bbs = target_bbs / self.constant_width
@@ -70,14 +75,14 @@ class ModelLoss:
         loss_diff = loss_diff.sum()
         return loss_class, loss_dc, loss_ratio, loss_diff
         """
-        return loss_class, loss_bbs
+        return loss_class, loss_bbs, loss_centers
 
     def aggregate_losses(self, losses):
-        loss_class, loss_bbs = losses
-        my_loss = self.alpha * loss_class + self.beta * loss_bbs
+        my_loss = 0
+        for i in range(len(losses)):
+            my_loss += losses[i] * self.weights[i]
         return my_loss
 
     def loss(self, out_classes, target_classes, out_bbs, target_bbs):
-        loss_class, loss_bbs = self.losses(out_classes, target_classes, out_bbs, target_bbs)
-        my_loss = self.alpha * loss_class + self.beta * loss_bbs
-        return my_loss
+        curr_losses = self.losses(out_classes, target_classes, out_bbs, target_bbs)
+        return self.aggregate_losses(curr_losses)
