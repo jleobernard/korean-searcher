@@ -15,7 +15,7 @@ from torch.utils.data import Dataset
 
 import matplotlib.pyplot as plt
 
-
+from com.leo.koreanparser.dl.conf import TARGET_WIDTH, TARGET_HEIGHT
 from com.leo.koreanparser.dl.utils.image_helper import normalize_imagenet
 
 IMAGE_EXTENSIONS = ["jpg", "png"]
@@ -66,7 +66,8 @@ class SubsDataset(Dataset):
     def __getitem__(self, idx):
         path = self.paths[idx]
         y_class = self.y[idx]
-        x, y_bb = transformsXY(path, self.bb[idx], self.transforms)
+        x, y_bb = getNominalData(path, self.bb[idx])
+        # x, y_bb = transformsXY(path, self.bb[idx], self.transforms)
         x = normalize_imagenet(x)
         x = np.rollaxis(x, 2)
         return x, y_class, y_bb
@@ -141,13 +142,13 @@ def create_bb_array(x):
 def read_image(path):
     return cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB)
 
-def resize_image_bb(read_path,write_path,bb, sz):
+def resize_image_bb(read_path,write_path,bb):
     """Resize an image and its bounding box and write image to new path"""
     im = read_image(read_path)
-    im_resized = cv2.resize(im, (int(1.49*sz), sz))
+    im_resized = cv2.resize(im, (TARGET_WIDTH, TARGET_HEIGHT))
     #plt.imshow(im_resized)
     #plt.show()
-    Y_resized = cv2.resize(create_mask(bb, im), (int(1.49*sz), sz))
+    Y_resized = cv2.resize(create_mask(bb, im), (TARGET_WIDTH, TARGET_HEIGHT))
     #plt.imshow(Y_resized, cmap='gray')
     #plt.show()
     new_path = str(write_path/read_path.parts[-1])
@@ -197,6 +198,11 @@ def random_cropXY(x, Y, r_pix=8):
     YY = crop(Y, start_r, start_c, r-2*r_pix, c-2*c_pix)
     return xx, YY
 
+def getNominalData(path, bb):
+    x = cv2.imread(str(path)).astype(np.float32)
+    x = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)/255
+    return x, bb
+
 def transformsXY(path, bb, transforms):
     x = cv2.imread(str(path)).astype(np.float32)
     x = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)/255
@@ -209,6 +215,25 @@ def transformsXY(path, bb, transforms):
     else:
         x, Y = center_crop(x), center_crop(Y)
     return x, mask_to_bb(Y)
+
+def augment_dataset(df_train):
+    print("Create fake input files")
+    augmented_dataset = pd.DataFrame(columns=df_train.columns)
+    for index, row in df_train.iterrows():
+        # Flip along Y axis
+        path_to_file = row['new_path']
+        bb = row['new_bb']
+        new_path = path_to_file + '.augmented.jpg'
+        im = read_image(path_to_file)
+        flipped_image = cv2.flip(im, 1)
+        cv2.imwrite(new_path, cv2.cvtColor(flipped_image, cv2.COLOR_RGB2BGR))
+        augmented_dataset = augmented_dataset.append({
+            'subs': row['subs'],
+            'filename': row['filename'],
+            'new_path': new_path,
+            'new_bb': [bb[0], 1 - bb[3], bb[2], 1 - bb[1]]
+        }, ignore_index=True)
+    return augmented_dataset
 
 
 def load_train_data(path, working_dir_path: str):
@@ -225,11 +250,10 @@ def load_train_data(path, working_dir_path: str):
     pd.set_option('display.width', 1000)
     for index, row in df_train.iterrows():
         filename = row['filename']
-        #print(f"Treating file {filename} ({index})")
         try:
-            new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values), 400)
+            new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values))
             new_paths.append(new_path)
-            new_bbs.append(new_bb)
+            new_bbs.append(new_bb / np.array([TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT, TARGET_WIDTH]))
         except:
             print(f"Could not open file {filename}")
             not_found.append(filename)
@@ -237,27 +261,28 @@ def load_train_data(path, working_dir_path: str):
         df_train = df_train[~df_train.filename.isin(not_found)]
     df_train['new_path'] = new_paths
     df_train['new_bb'] = new_bbs
+    augmented = augment_dataset(df_train)
     show_sample_image(df_train)
+    show_sample_image(augmented)
     print("...data loaded")
-    return df_train
+    return df_train.append(augmented)
 
 def show_sample_image(df_train: pd.DataFrame):
-    return
+    #return
     im = cv2.imread(str(df_train.values[2][-2]))
     im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
     show_corner_bb(im, df_train.values[2][-1])
     input("Press Enter to continue.")
 
 
-def create_corner_rect(bb, color='red', normalized: bool = False, size: Tuple[int, int]=(int(1.49*400), 400)):
+def create_corner_rect(bb, color='red'):
     bb = np.array(bb, dtype=np.float32)
-    if normalized:
-        coeffs = np.array([size[0], size[1], size[0], size[1]])
-        bb = bb * coeffs
     return plt.Rectangle((bb[1], bb[0]), bb[3]-bb[1], bb[2]-bb[0], color=color,
                          fill=False, lw=3)
 
-def show_corner_bb(im, bb, normalized: bool = False, size: Tuple[int, int]=(int(1.49*400), 400)):
+def show_corner_bb(im, bb):
     plt.imshow(im)
-    plt.gca().add_patch(create_corner_rect(bb, normalized=normalized, size=size))
+    height, width, _ = im.shape
+    resized_bb = bb * np.array([height, width, height, width])
+    plt.gca().add_patch(create_corner_rect(resized_bb))
     plt.show()
