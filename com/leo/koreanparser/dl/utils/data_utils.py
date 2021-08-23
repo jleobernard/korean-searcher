@@ -231,7 +231,7 @@ def augment_dataset(df_train):
             'subs': row['subs'],
             'filename': row['filename'],
             'new_path': new_path,
-            'new_bb': [bb[0], 1 - bb[3], bb[2], 1 - bb[1]]
+            'new_bb': np.array([bb[0], 1 - bb[3], bb[2], 1 - bb[1]], dtype=np.float32)
         }, ignore_index=True)
     return augmented_dataset
 
