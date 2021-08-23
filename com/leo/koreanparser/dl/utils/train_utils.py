@@ -27,13 +27,13 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, loss_computer, e
         total = 0
         sum_loss = 0
         for x, y_class, y_bb in train_dl:
+            optimizer.zero_grad()
             batch = y_class.shape[0]
             x = to_best_device(x).float()
             y_class = to_best_device(y_class).float()
             y_bb = to_best_device(y_bb).float()
             out_class, out_bb = model(x)
             loss = loss_computer.loss(out_class, y_class, out_bb, y_bb)
-            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             scheduler.step()
