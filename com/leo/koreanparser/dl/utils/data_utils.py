@@ -262,8 +262,8 @@ def load_train_data(path, working_dir_path: str):
     df_train['new_path'] = new_paths
     df_train['new_bb'] = new_bbs
     augmented = augment_dataset(df_train)
-    show_sample_image(df_train)
-    show_sample_image(augmented)
+    #show_sample_image(df_train)
+    #show_sample_image(augmented)
     print("...data loaded")
     return df_train.append(augmented)
 
