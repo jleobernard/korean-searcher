@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
+import torchvision.ops as ops
+
 
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
 
@@ -89,6 +91,16 @@ class ModelLoss:
         union = area_a + area_b - inter
         return inter / union  # [A,B]
 
+    def iou(self, out, target):
+        """
+        :param out: Tensor of shape (B, 4)
+        :param target:  Tensor of shape (B, 4)
+        :return:  Tensor of shape (B, 1)
+        """
+        area_out = ((out[:, 2]-out[:, 0]) * (out[:, 3]-out[:, 1]))
+        area_target = ((target[:, 2]-target[:, 0]) * (target[:, 3]-target[:, 1]))
+        interset = 0
+
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
         loss_bbs = F.mse_loss(out_bbs, target_bbs, reduction="sum")
@@ -97,7 +109,7 @@ class ModelLoss:
         center_y_hat = (out_bbs[:, 3] + out_bbs[:, 1]) / 2
         center_y_gt  = (target_bbs[:, 3] + target_bbs[:, 1]) / 2
         loss_centers = ((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2).sum()
-        loss_iou = self.jaccard(target_bbs, out_bbs).sum()
+        loss_iou = ops.boxes.box_iou(target_bbs, out_bbs)
         """
         out_bbs = out_bbs / self.constant_width
         target_bbs = target_bbs / self.constant_width
