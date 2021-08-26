@@ -67,7 +67,7 @@ class ModelLoss:
         wh = (rb - lt).clamp(min=0)  # [rows, 2]
         inter = wh[:, 0] * wh[:, 1]
 
-        return (inter / (area_target + area_out - inter)).sum()
+        return (0.5 - (inter / (area_target + area_out - inter))).sum()
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
