@@ -50,46 +50,7 @@ class ModelLoss:
         self.weights = weights
         self.constant_width = constant_width
         self.normalization_factor = constant_width ** 2
-
-    def intersect(self, box_a, box_b):
-        """ We resize both tensors to [A,B,2] without new malloc:
-        [A,2] -> [A,1,2] -> [A,B,2]
-        [B,2] -> [1,B,2] -> [A,B,2]
-        Then we compute the area of intersect between box_a and box_b.
-        Args:
-          box_a: (tensor) bounding boxes, Shape: [A,4].
-          box_b: (tensor) bounding boxes, Shape: [B,4].
-        Return:
-          (tensor) intersection area, Shape: [A,B].
-        """
-        A = box_a.size(0)
-        B = box_b.size(0)
-        max_xy = torch.min(box_a[:, 2:].unsqueeze(1).expand(A, B, 2),
-                           box_b[:, 2:].unsqueeze(0).expand(A, B, 2))
-        min_xy = torch.max(box_a[:, :2].unsqueeze(1).expand(A, B, 2),
-                           box_b[:, :2].unsqueeze(0).expand(A, B, 2))
-        inter = torch.clamp((max_xy - min_xy), min=0)
-        return inter[:, :, 0] * inter[:, :, 1]
-
-    def jaccard(self, box_a, box_b):
-        """Compute the jaccard overlap of two sets of boxes.  The jaccard overlap
-        is simply the intersection over union of two boxes.  Here we operate on
-        ground truth boxes and default boxes.
-        E.g.:
-            A ∩ B / A ∪ B = A ∩ B / (area(A) + area(B) - A ∩ B)
-        Args:
-            box_a: (tensor) Ground truth bounding boxes, Shape: [num_objects,4]
-            box_b: (tensor) Prior boxes from priorbox layers, Shape: [num_priors,4]
-        Return:
-            jaccard overlap: (tensor) Shape: [box_a.size(0), box_b.size(0)]
-        """
-        inter = self.intersect(box_a, box_b)
-        area_a = ((box_a[:, 2]-box_a[:, 0]) *
-                  (box_a[:, 3]-box_a[:, 1])).unsqueeze(1).expand_as(inter)  # [A,B]
-        area_b = ((box_b[:, 2]-box_b[:, 0]) *
-                  (box_b[:, 3]-box_b[:, 1])).unsqueeze(0).expand_as(inter)  # [A,B]
-        union = area_a + area_b - inter
-        return inter / union  # [A,B]
+        self.epsilon = 1e-4
 
     def iou(self, out, target):
         """
@@ -97,9 +58,16 @@ class ModelLoss:
         :param target:  Tensor of shape (B, 4)
         :return:  Tensor of shape (B, 1)
         """
-        area_out = ((out[:, 2]-out[:, 0]) * (out[:, 3]-out[:, 1]))
-        area_target = ((target[:, 2]-target[:, 0]) * (target[:, 3]-target[:, 1]))
-        interset = 0
+        area_out = ((out[:, 2]-out[:, 0]) * (out[:, 3]-out[:, 1])) + self.epsilon
+        area_target = ((target[:, 2]-target[:, 0]) * (target[:, 3]-target[:, 1])) + self.epsilon
+
+        lt = torch.max(out[:, :2], target[:, :2])  # [rows, 2]
+        rb = torch.min(out[:, 2:], target[:, 2:])  # [rows, 2]
+
+        wh = (rb - lt).clamp(min=0)  # [rows, 2]
+        inter = wh[:, 0] * wh[:, 1]
+
+        return (inter / (area_target + area_out - inter)).sum()
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
@@ -109,7 +77,7 @@ class ModelLoss:
         center_y_hat = (out_bbs[:, 3] + out_bbs[:, 1]) / 2
         center_y_gt  = (target_bbs[:, 3] + target_bbs[:, 1]) / 2
         loss_centers = ((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2).sum()
-        loss_iou = ops.boxes.box_iou(target_bbs, out_bbs)
+        loss_iou = self.iou(out_bbs, target_bbs)
         """
         out_bbs = out_bbs / self.constant_width
         target_bbs = target_bbs / self.constant_width
@@ -140,3 +108,19 @@ class ModelLoss:
     def loss(self, out_classes, target_classes, out_bbs, target_bbs):
         curr_losses = self.losses(out_classes, target_classes, out_bbs, target_bbs)
         return self.aggregate_losses(curr_losses)
+
+
+ml = ModelLoss(weights=[1., 1., 1., 1.])
+out = torch.tensor([
+    [0, 0, 10, 10],
+    [10, 10, 20, 20],
+    [5, 5, 20, 20],
+    [100, 100, 200, 200],
+])
+target = torch.tensor([
+    [5, 5, 20, 20],
+    [100, 100, 200, 200],
+    [0, 0, 10, 10],
+    [10, 10, 20, 20],
+])
+ml.iou(out, target)
