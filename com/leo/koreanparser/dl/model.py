@@ -19,8 +19,10 @@ class MyModel(nn.Module):
         self.features2 = nn.Sequential(*layers[6:])
         self.classifier = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 512), nn.ReLU(), nn.Linear(512, 1))
         self.bb = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 256), nn.ReLU(),
-                                nn.Dropout(), nn.Linear(256, 128), nn.ReLU(),
-                                nn.BatchNorm1d(128), nn.Linear(128, 4), nn.ReLU())
+                                #nn.Dropout(),
+                                nn.Linear(256, 128), nn.ReLU(),
+                                #nn.BatchNorm1d(128),
+                                nn.Linear(128, 4), nn.ReLU())
 
     def forward(self, x):
         x = self.features1(x)
