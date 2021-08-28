@@ -11,9 +11,9 @@ class MyModel(nn.Module):
 
     def __init__(self):
         super(MyModel, self).__init__()
-        resnet = models.resnet34(pretrained=False)
+        resnet = models.resnet34(pretrained=True)
         for param in resnet.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
         layers = list(resnet.children())[:8]
         self.features1 = nn.Sequential(*layers[:6])
         self.features2 = nn.Sequential(*layers[6:])
