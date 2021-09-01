@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
-import torchvision.ops as ops
 
 
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
@@ -79,7 +78,6 @@ class ModelLoss:
         center_y_hat = (out_bbs[:, 3] + out_bbs[:, 1]) / 2
         center_y_gt  = (target_bbs[:, 3] + target_bbs[:, 1]) / 2
         loss_centers = ((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2).sum()
-        loss_iou = self.iou(out_bbs, target_bbs)
         """
         out_bbs = out_bbs / self.constant_width
         target_bbs = target_bbs / self.constant_width
@@ -99,8 +97,7 @@ class ModelLoss:
         loss_diff = loss_diff.sum()
         return loss_class, loss_dc, loss_ratio, loss_diff
         """
-        #return loss_class, loss_bbs, loss_centers, loss_iou
-        return loss_class, loss_centers, loss_iou, loss_corners
+        return loss_class, loss_centers, loss_corners
 
     def aggregate_losses(self, losses):
         my_loss = 0
@@ -111,19 +108,3 @@ class ModelLoss:
     def loss(self, out_classes, target_classes, out_bbs, target_bbs):
         curr_losses = self.losses(out_classes, target_classes, out_bbs, target_bbs)
         return self.aggregate_losses(curr_losses)
-
-
-ml = ModelLoss(weights=[1., 1., 1., 1.])
-out = torch.tensor([
-    [0, 0, 10, 10],
-    [10, 10, 20, 20],
-    [5, 5, 20, 20],
-    [100, 100, 200, 200],
-])
-target = torch.tensor([
-    [5, 5, 20, 20],
-    [100, 100, 200, 200],
-    [0, 0, 10, 10],
-    [10, 10, 20, 20],
-])
-ml.iou(out, target)
