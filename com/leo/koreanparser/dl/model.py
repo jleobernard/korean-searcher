@@ -10,23 +10,19 @@ class MyModel(nn.Module):
 
     def __init__(self):
         super(MyModel, self).__init__()
-        resnet = models.resnet34(pretrained=True)
+        resnet = models.resnet50(pretrained=True)
         for param in resnet.parameters():
             param.requires_grad = True
         layers = list(resnet.children())[:8]
-        self.features1 = nn.Sequential(*layers[:6])
-        self.features2 = nn.Sequential(*layers[6:])
-        self.classifier = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 512), nn.ReLU(), nn.Linear(512, 1))
-        self.bb = nn.Sequential(nn.BatchNorm1d(512), nn.Linear(512, 256), nn.ReLU(),
+        self.features = nn.Sequential(*layers)
+        self.classifier = nn.Sequential(nn.Linear(2048, 512), nn.ReLU(), nn.Linear(512, 1))
+        self.bb = nn.Sequential(nn.Linear(2048, 1024), nn.ReLU(),
                                 nn.Dropout(p=0.22),
-                                nn.Linear(256, 128), nn.ReLU(),
-                                nn.BatchNorm1d(128),
-                                nn.Linear(128, 4), nn.ReLU())
+                                nn.Linear(1024, 512), nn.ReLU(),
+                                nn.Linear(512, 4), nn.ReLU())
 
     def forward(self, x):
-        x = self.features1(x)
-        x = self.features2(x)
-        x = F.relu(x)
+        x = self.features(x)
         x = nn.AdaptiveAvgPool2d((1, 1))(x)
         x = x.view(x.shape[0], -1)
         return self.classifier(x), self.bb(x)
