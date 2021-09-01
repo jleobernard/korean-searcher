@@ -73,7 +73,7 @@ class ModelLoss:
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
-        #loss_bbs = F.mse_loss(out_bbs, target_bbs, reduction="sum")
+        loss_corners = F.mse_loss(out_bbs, target_bbs, reduction="sum")
         center_x_hat = (out_bbs[:, 2] + out_bbs[:, 0]) / 2
         center_x_gt  = (target_bbs[:, 2] + target_bbs[:, 0]) / 2
         center_y_hat = (out_bbs[:, 3] + out_bbs[:, 1]) / 2
@@ -100,7 +100,7 @@ class ModelLoss:
         return loss_class, loss_dc, loss_ratio, loss_diff
         """
         #return loss_class, loss_bbs, loss_centers, loss_iou
-        return loss_class, loss_centers, loss_iou
+        return loss_class, loss_centers, loss_iou, loss_corners
 
     def aggregate_losses(self, losses):
         my_loss = 0
