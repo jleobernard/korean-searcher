@@ -36,6 +36,7 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, loss_computer, e
             loss = loss_computer.loss(out_class, y_class, out_bb, y_bb)
             loss.backward()
             optimizer.step()
+            scheduler.step()
             idx += 1
             total += batch
             sum_loss += loss.item()
