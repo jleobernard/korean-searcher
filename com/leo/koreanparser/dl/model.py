@@ -44,10 +44,8 @@ def get_model(eval: bool = False):
 
 class ModelLoss:
 
-    def __init__(self, weights: [float], constant_width: float = 400):
+    def __init__(self, weights: [float]):
         self.weights = weights
-        self.constant_width = constant_width
-        self.normalization_factor = constant_width ** 2
         self.epsilon = 1e-4
 
     def iou(self, out, target):
@@ -75,25 +73,6 @@ class ModelLoss:
         center_y_hat = (out_bbs[:, 3] + out_bbs[:, 1]) / 2
         center_y_gt  = (target_bbs[:, 3] + target_bbs[:, 1]) / 2
         loss_centers = ((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2).sum()
-        """
-        out_bbs = out_bbs / self.constant_width
-        target_bbs = target_bbs / self.constant_width
-        longueur_gt = (target_bbs[:, 2] - target_bbs[:, 0]) + 1 # Pour éviter les divisions par zéro
-        largeur_gt = (target_bbs[:, 3] - target_bbs[:, 1]) + 1
-        longueur_hat = (out_bbs[:, 2] - out_bbs[:, 0]) + 1
-        largeur_hat = (out_bbs[:, 3] - out_bbs[:, 1]) + 1
-        d1gt = target_bbs[:, 0] + longueur_gt / 2
-        d2gt = target_bbs[:, 1] + largeur_gt / 2
-        d1 = out_bbs[:, 0] + longueur_hat / 2
-        d2 = out_bbs[:, 1] + largeur_hat / 2
-        loss_dc = ((d1gt - d1) ** 2 + (d2gt - d2) ** 2)
-        loss_dc = loss_dc.sum()
-        loss_ratio = (((longueur_gt / largeur_gt) - (longueur_hat / largeur_hat)) ** 2)
-        loss_ratio = loss_ratio.sum()
-        loss_diff = ((longueur_gt - longueur_hat) ** 2)
-        loss_diff = loss_diff.sum()
-        return loss_class, loss_dc, loss_ratio, loss_diff
-        """
         return loss_class, loss_centers, loss_corners
 
     def aggregate_losses(self, losses):
