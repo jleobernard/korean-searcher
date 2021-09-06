@@ -253,7 +253,7 @@ def load_train_data(path, working_dir_path: str):
         try:
             new_path, new_bb = resize_image_bb(filename, train_path_resized, create_bb_array(row.values))
             new_paths.append(new_path)
-            new_bbs.append(new_bb) # / np.array([TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT, TARGET_WIDTH]))
+            new_bbs.append(new_bb / np.array([TARGET_HEIGHT, TARGET_WIDTH, TARGET_HEIGHT, TARGET_WIDTH]))
         except:
             print(f"Could not open file {filename}")
             not_found.append(filename)
@@ -261,12 +261,11 @@ def load_train_data(path, working_dir_path: str):
         df_train = df_train[~df_train.filename.isin(not_found)]
     df_train['new_path'] = new_paths
     df_train['new_bb'] = new_bbs
-    #augmented = augment_dataset(df_train)
+    augmented = augment_dataset(df_train)
     #show_sample_image(df_train)
     #show_sample_image(augmented)
     print("...data loaded")
-    #return df_train.append(augmented)
-    return df_train
+    return df_train.append(augmented)
 
 def show_sample_image(df_train: pd.DataFrame):
     #return

@@ -10,19 +10,20 @@ class MyModel(nn.Module):
 
     def __init__(self):
         super(MyModel, self).__init__()
-        resnet = models.resnet50(pretrained=True)
+        resnet = models.resnet34(pretrained=True)
         for param in resnet.parameters():
             param.requires_grad = True
         layers = list(resnet.children())[:8]
         self.features = nn.Sequential(*layers)
-        self.classifier = nn.Sequential(nn.Linear(2048, 512), nn.ReLU(), nn.Linear(512, 1))
-        self.bb = nn.Sequential(nn.Linear(2048, 1024), nn.ReLU(),
-                                nn.Dropout(p=0.22),
-                                nn.Linear(1024, 512), nn.ReLU(),
-                                nn.Linear(512, 4), nn.ReLU())
+        self.classifier = nn.Sequential(nn.Linear(512, 1024), nn.ReLU(), nn.Linear(1024, 1))
+        self.bb = nn.Sequential(nn.Linear(512, 256), nn.ReLU(),
+                                nn.Dropout(p=0.2),
+                                nn.Linear(256, 128), nn.ReLU(),
+                                nn.Linear(128, 4), nn.ReLU())
 
     def forward(self, x):
         x = self.features(x)
+        # x.shape = 2, 512, 13, 19
         x = nn.AdaptiveAvgPool2d((1, 1))(x)
         x = x.view(x.shape[0], -1)
         return self.classifier(x), self.bb(x)
@@ -68,12 +69,12 @@ class ModelLoss:
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
-        loss_corners = F.mse_loss(out_bbs, target_bbs, reduction="mean")
+        loss_corners = F.mse_loss(out_bbs, target_bbs, reduction="sum")
         center_x_hat = (out_bbs[:, 2] + out_bbs[:, 0]) / 2
         center_x_gt  = (target_bbs[:, 2] + target_bbs[:, 0]) / 2
         center_y_hat = (out_bbs[:, 3] + out_bbs[:, 1]) / 2
         center_y_gt  = (target_bbs[:, 3] + target_bbs[:, 1]) / 2
-        loss_centers = ((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2).mean()
+        loss_centers = ((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2).sum()
         """
         out_bbs = out_bbs / self.constant_width
         target_bbs = target_bbs / self.constant_width
