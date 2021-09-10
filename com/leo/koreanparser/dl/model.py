@@ -44,7 +44,7 @@ class MyModel(nn.Module):
         out_x_height = torch.cat((out_x_height[:, 0, :], out_x_height[:, -1, :]), 1)
         out_x_height = self.classifier_h(out_x_height)
 
-        boxes = torch.stack((out_x_height, out_x_width), dim=2).view(2,4)
+        boxes = torch.stack((out_x_height, out_x_width), dim=2).view(x.shape[0], 4)
 
         return x_class, boxes
 
