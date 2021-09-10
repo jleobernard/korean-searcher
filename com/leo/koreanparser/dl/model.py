@@ -97,11 +97,16 @@ class ModelLoss:
         y_target_bbs = target_bbs[:, [0, 2]]
         x_target_bbs = target_bbs[:, [1, 3]]
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
-        loss_corners = ((F.mse_loss(y_out_bbs, y_target_bbs, reduction="none") + F.mse_loss(x_out_bbs, x_target_bbs, reduction="none")) * target_classes).sum()
+        mse1 = F.mse_loss(y_out_bbs, y_target_bbs, reduction="none")
+        mse2 = F.mse_loss(x_out_bbs, x_target_bbs, reduction="none")
+        print(f"mse1 shape is {mse1.shape}")
+        print(f"mse2 shape is {mse2.shape}")
+        print(f"target_classes shape shape is {target_classes.shape}")
+        loss_corners = ((mse1 + mse2) * target_classes).sum()
         center_y_hat = torch.mean(y_out_bbs, dim=1, keepdim=True)
         center_x_hat = torch.mean(x_out_bbs, dim=1, keepdim=True)
         center_x_gt  = torch.mean(x_target_bbs, dim=1, keepdim=True)
-        center_y_gt = torch.mean(y_target_bbs, dim=1, keepdim=True)
+        center_y_gt  = torch.mean(y_target_bbs, dim=1, keepdim=True)
         loss_centers = (((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2) * target_classes).sum()
         return loss_class, loss_centers, loss_corners
 
