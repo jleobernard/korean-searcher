@@ -48,18 +48,18 @@ def train_epocs(model, optimizer, train_dl, val_dl, models_rep, loss_computer, e
         print("train_loss %.3f val_loss %.3f val_acc %.3f ---- Loss Boxes : %s" % (train_loss, val_loss, val_acc, str_box_loss_formatted))
         if sum_loss < min_loss:
             do_save = True
-            #best_model.load_state_dict(model.state_dict())
+            best_model.load_state_dict(model.state_dict())
             min_loss = sum_loss
         else:
             if do_save:
                 print(f'[{idx}] Best loss so far is {min_loss} so we will save in best')
-                #torch.save(best_model.state_dict(), f"{models_rep}/best.pt")
+                torch.save(best_model.state_dict(), f"{models_rep}/best.pt")
             do_save = False
     end = time.time()
     print(f"It took {end - start}")
     if do_save:
         print(f'[END] Best loss was {min_loss} so we will save in best')
-        #torch.save(best_model.state_dict(), f"{models_rep}/best.pt")
+        torch.save(best_model.state_dict(), f"{models_rep}/best.pt")
     return sum_loss/total
 
 

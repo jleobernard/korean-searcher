@@ -34,6 +34,8 @@ model = get_model(eval=True)
 do_lod_specific_model(weights_path, model)
 
 out_class, out_bb = model(xx)
+ys, xs = out_bb
+out_bb = torch
 
 class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
 bb_hat = out_bb.detach().cpu().numpy()
