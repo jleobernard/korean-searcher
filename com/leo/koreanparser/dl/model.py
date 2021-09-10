@@ -97,8 +97,8 @@ class ModelLoss:
         y_target_bbs = target_bbs[:, [0, 2]]
         x_target_bbs = target_bbs[:, [1, 3]]
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
-        mse1 = F.mse_loss(y_out_bbs, y_target_bbs, reduction="none")
-        mse2 = F.mse_loss(x_out_bbs, x_target_bbs, reduction="none")
+        mse1 = F.mse_loss(y_out_bbs, y_target_bbs, reduction="none").sum(dim=1)
+        mse2 = F.mse_loss(x_out_bbs, x_target_bbs, reduction="none").sum(dim=1)
         print(f"mse1 shape is {mse1.shape}")
         print(f"mse2 shape is {mse2.shape}")
         print(f"target_classes shape shape is {target_classes.shape}")
