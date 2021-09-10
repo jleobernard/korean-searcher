@@ -16,20 +16,49 @@ class MyModel(nn.Module):
         layers = list(resnet.children())[:8]
         self.features = nn.Sequential(*layers)
         self.classifier = nn.Sequential(nn.Linear(512, 1024), nn.ReLU(), nn.Linear(1024, 1))
-        self.bb = nn.Sequential(nn.Linear(512, 256), nn.ReLU(),
-                                nn.Dropout(p=0.2),
-                                nn.Linear(256, 128), nn.ReLU(),
-                                nn.Linear(128, 4), nn.ReLU())
+        self.lstm_h = nn.LSTM(input_size=512, hidden_size=512, num_layers=4, batch_first=True, bidirectional=True)
+        self.lstm_w = nn.LSTM(input_size=512, hidden_size=512, num_layers=4, batch_first=True, bidirectional=True)
+        self.classifier_h = nn.Sequential(nn.Linear(2048, 512), nn.ReLU(), nn.Linear(512, 2), nn.Sigmoid())
+        self.classifier_w = nn.Sequential(nn.Linear(2048, 512), nn.ReLU(), nn.Linear(512, 2), nn.Sigmoid())
 
     def forward(self, x):
         x = self.features(x)
-        # x.shape = 2, 512, 13, 19
-        x = nn.AdaptiveAvgPool2d((1, 1))(x)
-        x = x.view(x.shape[0], -1)
-        return self.classifier(x), self.bb(x)
+        # x.shape = _, 512, 13, 19
+        x_class = nn.AdaptiveAvgPool2d((1, 1))(x)
+        x_class = x_class.view(x.shape[0], -1)
+        x_class = self.classifier(x_class)
+        ###################
+        ## Determine width
+        x_width = torch.sum(x, 2) # x_width.shape = _, 512, 19
+        x_width = F.sigmoid(x_width)
+        x_width = torch.transpose(x_width, 1, 2)# x_width.shape = _, 19, 512
+        out_x_width, _ = self.lstm_w(x_width)
+        out_x_width = torch.cat((out_x_width[:, 0, :], out_x_width[:, -1, :]), 1)
+        out_x_width = self.classifier_w(out_x_width)
+        ###################
+        ## Determine height
+        x_height = torch.sum(x, 3) # x_height.shape = _, 512, 13
+        x_height = F.sigmoid(x_height)
+        x_height = torch.transpose(x_height, 1, 2) # x_height.shape = _, 13, 512
+        out_x_height, _ = self.lstm_w(x_height)
+        out_x_height = torch.cat((out_x_height[:, 0, :], out_x_height[:, -1, :]), 1)
+        out_x_height = self.classifier_h(out_x_height)
+
+        boxes = torch.stack((out_x_height, out_x_width), dim=2).view(2,4)
+
+        return x_class, boxes
+
 
     def initialize_weights(self):
-        pass
+        modules = [self.lstm_w, self.lstm_h]
+        for m in modules:
+            for name, param in m.named_parameters():
+                if 'weight_ih' in name:
+                    torch.nn.init.xavier_uniform_(param.data)
+                elif 'weight_hh' in name:
+                    torch.nn.init.orthogonal_(param.data)
+                elif 'bias' in name:
+                    param.data.fill_(0)
 
 
 def get_model(eval: bool = False):
