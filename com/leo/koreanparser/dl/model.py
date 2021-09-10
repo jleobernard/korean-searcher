@@ -30,7 +30,7 @@ class MyModel(nn.Module):
         ###################
         ## Determine width
         x_width = torch.sum(x, 2) # x_width.shape = _, 512, 19
-        x_width = F.sigmoid(x_width)
+        x_width = torch.sigmoid(x_width)
         x_width = torch.transpose(x_width, 1, 2)# x_width.shape = _, 19, 512
         out_x_width, _ = self.lstm_w(x_width)
         out_x_width = torch.cat((out_x_width[:, 0, :], out_x_width[:, -1, :]), 1)
@@ -38,7 +38,7 @@ class MyModel(nn.Module):
         ###################
         ## Determine height
         x_height = torch.sum(x, 3) # x_height.shape = _, 512, 13
-        x_height = F.sigmoid(x_height)
+        x_height = torch.sigmoid(x_height)
         x_height = torch.transpose(x_height, 1, 2) # x_height.shape = _, 13, 512
         out_x_height, _ = self.lstm_w(x_height)
         out_x_height = torch.cat((out_x_height[:, 0, :], out_x_height[:, -1, :]), 1)
