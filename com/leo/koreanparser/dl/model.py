@@ -16,8 +16,8 @@ class MyModel(nn.Module):
         layers = list(resnet.children())[:8]
         self.features = nn.Sequential(*layers)
         self.classifier = nn.Sequential(nn.Linear(512, 1024), nn.ReLU(), nn.Linear(1024, 1))
-        self.lstm_h = nn.LSTM(input_size=512, hidden_size=512, num_layers=4, batch_first=True, bidirectional=True)
-        self.lstm_w = nn.LSTM(input_size=512, hidden_size=512, num_layers=4, batch_first=True, bidirectional=True)
+        self.lstm_h = nn.LSTM(input_size=512, hidden_size=512, num_layers=2, batch_first=True, bidirectional=True)
+        self.lstm_w = nn.LSTM(input_size=512, hidden_size=512, num_layers=2, batch_first=True, bidirectional=True)
         self.classifier_h = nn.Sequential(nn.Linear(2048, 512), nn.ReLU(), nn.Linear(512, 2), nn.Sigmoid())
         self.classifier_w = nn.Sequential(nn.Linear(2048, 512), nn.ReLU(), nn.Linear(512, 2), nn.Sigmoid())
 
@@ -28,7 +28,7 @@ class MyModel(nn.Module):
         x_class = x_class.view(x.shape[0], -1)
         x_class = self.classifier(x_class)
         ###################
-        ## Determine width
+        ## Width
         x_width = torch.sum(x, 2) # x_width.shape = _, 512, 19
         x_width = torch.sigmoid(x_width)
         x_width = torch.transpose(x_width, 1, 2)# x_width.shape = _, 19, 512
@@ -36,7 +36,7 @@ class MyModel(nn.Module):
         out_x_width = torch.cat((out_x_width[:, 0, :], out_x_width[:, -1, :]), 1)
         out_x_width = self.classifier_w(out_x_width)
         ###################
-        ## Determine height
+        ## Height
         x_height = torch.sum(x, 3) # x_height.shape = _, 512, 13
         x_height = torch.sigmoid(x_height)
         x_height = torch.transpose(x_height, 1, 2) # x_height.shape = _, 13, 512
@@ -44,9 +44,7 @@ class MyModel(nn.Module):
         out_x_height = torch.cat((out_x_height[:, 0, :], out_x_height[:, -1, :]), 1)
         out_x_height = self.classifier_h(out_x_height)
 
-        boxes = torch.stack((out_x_height, out_x_width), dim=2).view(x.shape[0], 4)
-
-        return x_class, boxes
+        return x_class, (out_x_height, out_x_width)
 
 
     def initialize_weights(self):
@@ -95,13 +93,16 @@ class ModelLoss:
         return (0.5 - (inter / (area_target + area_out - inter))).sum()
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
+        y_out_bbs, x_out_bbs = out_bbs
+        y_target_bbs = target_bbs[:, [0, 2]]
+        x_target_bbs = target_bbs[:, [1, 3]]
         loss_class = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
-        loss_corners = F.mse_loss(out_bbs, target_bbs, reduction="sum")
-        center_x_hat = (out_bbs[:, 2] + out_bbs[:, 0]) / 2
-        center_x_gt  = (target_bbs[:, 2] + target_bbs[:, 0]) / 2
-        center_y_hat = (out_bbs[:, 3] + out_bbs[:, 1]) / 2
-        center_y_gt  = (target_bbs[:, 3] + target_bbs[:, 1]) / 2
-        loss_centers = ((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2).sum()
+        loss_corners = ((F.mse_loss(y_out_bbs, y_target_bbs, reduction="none") + F.mse_loss(x_out_bbs, x_target_bbs, reduction="none")) * target_classes).sum()
+        center_y_hat = torch.mean(y_out_bbs, dim=1, keepdim=True)
+        center_x_hat = torch.mean(x_out_bbs, dim=1, keepdim=True)
+        center_x_gt  = torch.mean(x_target_bbs, dim=1, keepdim=True)
+        center_y_gt = torch.mean(y_target_bbs, dim=1, keepdim=True)
+        loss_centers = (((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2) * target_classes).sum()
         return loss_class, loss_centers, loss_corners
 
     def aggregate_losses(self, losses):
