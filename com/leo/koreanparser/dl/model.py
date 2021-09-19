@@ -163,7 +163,8 @@ class ModelLoss:
 
 
     def get_cell_with_corners(self, target_bbs, height, width):
-        new_tbs = to_best_device(torch.floor(target_bbs * torch.tensor([height, width, height, width], requires_grad=False)))
+        new_tbs = torch.floor(
+            target_bbs * torch.tensor([height, width, height, width], requires_grad=False, device=target_bbs.device))
         corners = torch.cat([
             (new_tbs[:, 0] * width + new_tbs[:, 1]).unsqueeze(0),
             (new_tbs[:, 2] * width + new_tbs[:, 3]).unsqueeze(0)
