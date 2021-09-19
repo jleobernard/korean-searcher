@@ -149,21 +149,21 @@ class ModelLoss:
         B, _ = target_bbs.shape
         HxW = height * width
         targets = torch.cat([coord.expand(HxW, -1) for coord in torch.cat([target_bbs[:, 0:2], target_bbs[:, 2:]])])
-        template_origin = torch.zeros((HxW, 2), requires_grad=False)
+        template_origin = to_best_device(torch.zeros((HxW, 2), requires_grad=False))
         idx = 0
         for i in range(height):
             ii = i / height
             for j in range(width):
-                template_origin[idx] = torch.tensor([ii, j / width], requires_grad=False)
+                template_origin[idx] = to_best_device(torch.tensor([ii, j / width], requires_grad=False))
                 idx += 1
         template_origin = template_origin.repeat(B * 2, 1)
-        targets = (targets - template_origin) * torch.tensor([height, width], requires_grad=False)
+        targets = (targets - template_origin) * to_best_device(torch.tensor([height, width], requires_grad=False))
         return targets
 
 
 
     def get_cell_with_corners(self, target_bbs, height, width):
-        new_tbs = torch.floor(target_bbs * torch.tensor([height, width, height, width], requires_grad=False))
+        new_tbs = to_best_device(torch.floor(target_bbs * torch.tensor([height, width, height, width], requires_grad=False)))
         corners = torch.cat([
             (new_tbs[:, 0] * width + new_tbs[:, 1]).unsqueeze(0),
             (new_tbs[:, 2] * width + new_tbs[:, 3]).unsqueeze(0)
