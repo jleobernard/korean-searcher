@@ -57,7 +57,7 @@ class ModelLoss:
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         # out_bbs.shape = _, 6, 13, 19
         # 6 => p_x0, x01, x02, p_x1, x11, x12
-        loss_presence = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="sum")
+        loss_presence = F.binary_cross_entropy_with_logits(out_classes, target_classes.unsqueeze(1), reduction="mean")
         # Reshape
         B, N, H, W = out_bbs.shape
         HxW = H * W
@@ -68,9 +68,9 @@ class ModelLoss:
         preds = torch.cat([preds[:, 1:3], preds[:, 4:]])
         cell_with_corners = self.get_cell_with_corners(target_bbs, height=H, width=W)
         oneobj_target = self.get_one_obj_target(target_bbs, cell_with_corners, height=H, width=W)
-        loss_cell_presence = F.binary_cross_entropy_with_logits(oneobj_hat, oneobj_target, reduction="sum")
+        loss_cell_presence = F.binary_cross_entropy_with_logits(oneobj_hat, oneobj_target, reduction="mean")
         reshaped_target_boxes = self.reshape_target_boxes(target_bbs, height=H, width=W)
-        loss_distance_to_corners = (((preds - reshaped_target_boxes) ** 2).sum(dim=1) * oneobj_hat).sum()
+        loss_distance_to_corners = (((preds - reshaped_target_boxes) ** 2).sum(dim=1) * oneobj_hat).mean()
         return loss_presence, loss_cell_presence, loss_distance_to_corners
 
     def aggregate_losses(self, losses):
