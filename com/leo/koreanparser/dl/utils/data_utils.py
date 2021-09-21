@@ -282,7 +282,6 @@ def create_corner_rect(bb, color='red'):
 
 def show_corner_bb(im, bb):
     plt.imshow(im)
-    height, width, _ = im.shape
-    resized_bb = bb * np.array([height, width, height, width])
+    resized_bb = bb
     plt.gca().add_patch(create_corner_rect(resized_bb))
     plt.show()

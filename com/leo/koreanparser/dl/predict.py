@@ -10,6 +10,26 @@ from com.leo.koreanparser.dl.utils.data_utils import read_image, SubsDataset, sh
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
 from com.leo.koreanparser.dl.utils.train_utils import do_load_model, do_lod_specific_model
 
+
+def get_bb_from_bouding_boxes(predicted, height: int, width: int):
+    """
+    :param predicted: Tensor of shape (B, 6, H, W)
+    :return: Tensor shape (B, 4)
+    """
+    B, H, W, N = predicted.shape
+    HxW = H * W
+    preds = predicted.reshape(B, N, HxW)
+    preds = preds.transpose(1, 2).contiguous() # B, H x W, N
+    ys = preds[:, :, 0]
+    _, indices = torch.max(ys, dim=1)
+    size = torch.tensor([height / H, width / W])
+    origins = [torch.tensor([torch.floor(val / W), val % W] + preds[i, val, 1:3]) for i, val in enumerate(indices)]
+    xs = preds[:, :, 0]
+    _, indices = torch.max(xs, dim=1)
+    origins = [torch.tensor([torch.floor(val / W), val % W] + preds[i, val, 4:]) for i, val in enumerate(indices)]
+    return origins * size
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-w', '--weights', dest='weights_path',
                     help='path to model weights', required=True)
@@ -34,15 +54,13 @@ model = get_model(eval=True)
 do_lod_specific_model(weights_path, model)
 
 out_class, out_bb = model(xx)
-ys, xs = out_bb
-out_bb = torch
 
-class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
 bb_hat = out_bb.detach().cpu().numpy()
+bounding_boxes = get_bb_from_bouding_boxes(bb_hat)
+class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
 if class_hat[0][0] >= threshold:
     print(f"L'image contient des sous-titres ({class_hat[0][0]})")
 else:
     print(f"L'image ne contient pas de sous-titres ({class_hat[0][0]})")
-#bb_hat = bb_hat.astype(int)
-print(f"Predicted bounding box is {bb_hat[0]}")
-show_corner_bb(im, bb_hat[0])
+print(f"Predicted bounding box is {bounding_boxes[0]}")
+show_corner_bb(im, bounding_boxes[0])
