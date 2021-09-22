@@ -31,7 +31,7 @@ X = df_train[['new_path', 'new_bb']]
 Y = df_train['subs']
 
 loss = ModelLoss([float(args['alpha']), float(args['beta']), float(args['gamma']), float(args['theta'])],
-                 width=TARGET_WIDTH, height=TARGET_HEIGHT, cell_width_stride=19, cell_height_stride=13)
+                 width=TARGET_WIDTH, height=TARGET_HEIGHT)
 X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2)
 train_ds = SubsDataset(X_train['new_path'], X_train['new_bb'], y_train, transforms=True)
 valid_ds = SubsDataset(X_val['new_path'], X_val['new_bb'], y_val)

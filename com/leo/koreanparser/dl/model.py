@@ -159,7 +159,7 @@ class ModelLoss:
             (new_tbs[:, 2] * width + new_tbs[:, 3]).unsqueeze(0)
         ], dim=0).transpose(0, 1)
         return corners
-
+"""
 ml = ModelLoss(width=0, height=0, weights=[])
 bbs = torch.tensor([
     [0.5, 0.5, 0.9, 0.9],
@@ -167,3 +167,4 @@ bbs = torch.tensor([
 ])
 corners = ml.get_one_obj_target(bbs, 3, 2)
 print(corners)
+"""
