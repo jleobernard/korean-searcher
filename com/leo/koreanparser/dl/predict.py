@@ -16,18 +16,21 @@ def get_bb_from_bouding_boxes(predicted, height: int, width: int):
     :param predicted: Tensor of shape (B, 6, H, W)
     :return: Tensor shape (B, 4)
     """
-    B, H, W, N = predicted.shape
+    B, N, H, W = predicted.shape
     HxW = H * W
+    cell_height = height / H
+    cell_width = width / W
     preds = predicted.reshape(B, N, HxW)
     preds = preds.transpose(1, 2).contiguous() # B, H x W, N
-    ys = preds[:, :, 0]
-    _, indices = torch.max(ys, dim=1)
-    size = torch.tensor([height / H, width / W])
-    origins = [torch.tensor([torch.floor(val / W), val % W] + preds[i, val, 1:3]) for i, val in enumerate(indices)]
-    xs = preds[:, :, 0]
-    _, indices = torch.max(xs, dim=1)
-    origins = [torch.tensor([torch.floor(val / W), val % W] + preds[i, val, 4:]) for i, val in enumerate(indices)]
-    return origins * size
+    _, indices_y = torch.max(preds[:, :, 0], dim=1)
+    _, indices_x = torch.max(preds[:, :, 3], dim=1)
+    origins = torch.cat(
+        [
+            torch.cat([torch.tensor([torch.floor(val / W), val % W]) + preds[i, val, 1:3] for i, val in enumerate(indices_y)]).unsqueeze(0),
+            torch.cat([torch.tensor([torch.floor(val / W), val % W]) + preds[i, val, 4:] for i, val in enumerate(indices_x)]).unsqueeze(0)
+        ], dim=1
+    )
+    return origins * torch.tensor([cell_height, cell_width, cell_height, cell_width])
 
 
 parser = argparse.ArgumentParser()
@@ -55,8 +58,8 @@ do_lod_specific_model(weights_path, model)
 
 out_class, out_bb = model(xx)
 
-bb_hat = out_bb.detach().cpu().numpy()
-bounding_boxes = get_bb_from_bouding_boxes(bb_hat)
+bb_hat = out_bb.detach().cpu()
+bounding_boxes = get_bb_from_bouding_boxes(bb_hat, height=TARGET_HEIGHT, width=TARGET_WIDTH)
 class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
 if class_hat[0][0] >= threshold:
     print(f"L'image contient des sous-titres ({class_hat[0][0]})")
