@@ -43,6 +43,7 @@ def get_model(eval: bool = False):
         model = model.train()
     return to_best_device(model)
 
+
 class ModelLoss:
 
     def __init__(self, weights: [float], width: float, height: float, cell_width_stride: float = 19, cell_height_stride: float = 13):
@@ -69,8 +70,7 @@ class ModelLoss:
         loss_cell_presence = F.binary_cross_entropy(oneobj_hat, oneobj_target, reduction="sum")
         reshaped_target_boxes = self.reshape_target_boxes(target_bbs, height=H, width=W)
         loss_distance_to_corners = (((preds - reshaped_target_boxes) ** 2).sum(dim=1) * oneobj_hat).sum()
-        loss_cell_absence = F.binary_cross_entropy(1 - oneobj_hat, 1 - oneobj_target, reduction="sum")
-        return loss_presence, loss_cell_presence, loss_distance_to_corners, loss_cell_absence
+        return loss_presence, loss_cell_presence, loss_distance_to_corners
 
 
 
