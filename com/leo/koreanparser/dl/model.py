@@ -46,13 +46,11 @@ def get_model(eval: bool = False):
 
 class ModelLoss:
 
-    def __init__(self, weights: [float], width: float, height: float, cell_width_stride: float = 19, cell_height_stride: float = 13):
+    def __init__(self, weights: [float], width: float, height: float):
         self.weights = weights
         self.epsilon = 1e-4
         self.width = width
         self.height = height
-        self.cell_width = width / cell_width_stride
-        self.cell_height = height / cell_height_stride
 
     def losses(self, out_classes, target_classes, out_bbs, target_bbs):
         # out_bbs.shape = _, 6, 13, 19
@@ -159,30 +157,13 @@ class ModelLoss:
         corners = torch.cat([
             (new_tbs[:, 0] * width + new_tbs[:, 1]).unsqueeze(0),
             (new_tbs[:, 2] * width + new_tbs[:, 3]).unsqueeze(0)
-        ])
+        ], dim=0).transpose(0, 1)
         return corners
 
-
-"""
-
-        ########################
-        ## Ys
-        y_preds = preds[:, :, 0:3]
-        maxes, indices = torch.max(y_preds[:, :, 0], dim=1)
-        y_preds_with_boxes = torch.stack([y_preds[i, val, :] for i, val in enumerate(indices)])
-        loss_confidence = ((1 - y_preds_with_boxes[:, 0]) ** 2).sum()
-        designed_target_bbs_y = torch.stack([target_bbs[i, 0::2] * torch.tensor([int(i / self.cell_width) * self.cell_height, int(i / self.cell_width) * self.cell_height]) for i, val in enumerate(indices)])
-        designed_target_bbs_y.requires_grad = False
-        loss_y_corners = F.mse_loss(y_preds_with_boxes[:, 1:], designed_target_bbs_y)
-        y_preds_without_boxes = torch.stack([torch.cat([y_preds[i, 0:val, :], y_preds[i, val + 1:, :]]) for i, val in enumerate(indices)], dim=0)
-        loss_confidence += (y_preds_without_boxes[:, :, 0] ** 2).sum()
-
-        x_preds = preds[:, :, 3:]
-
-        #xs =
-        center_y_hat = torch.mean(y_out_bbs, dim=1, keepdim=True)
-        center_x_hat = torch.mean(x_out_bbs, dim=1, keepdim=True)
-        center_x_gt  = torch.mean(x_target_bbs, dim=1, keepdim=True)
-        center_y_gt  = torch.mean(y_target_bbs, dim=1, keepdim=True)
-        loss_centers = (((center_x_hat - center_x_gt) ** 2 + (center_y_hat - center_y_gt) ** 2) * target_classes).sum()
-"""
+ml = ModelLoss(width=0, height=0, weights=[])
+bbs = torch.tensor([
+    [0.5, 0.5, 0.9, 0.9],
+    [0.1, 0., 0.4, 0.4]
+])
+corners = ml.get_one_obj_target(bbs, 3, 2)
+print(corners)
