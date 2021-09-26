@@ -133,4 +133,5 @@ dmypy.json
 *.iml
 
 com/leo/koreanparser/dl/data
-*.conf
+.conf
+.env

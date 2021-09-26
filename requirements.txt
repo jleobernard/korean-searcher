@@ -15,6 +15,7 @@ chardet==3.0.4
 click==7.1.1
 constantly==15.1.0
 cryptography==2.9
+cycler==0.10.0
 daphne==2.5.0
 distlib==0.3.0
 Django==3.0.5
@@ -41,7 +42,9 @@ joblib==0.14.1
 Keras==2.3.1
 Keras-Applications==1.0.8
 Keras-Preprocessing==1.1.0
+kiwisolver==1.3.1
 Markdown==3.2
+matplotlib==3.4.2
 mock==4.0.2
 mypy==0.910
 mypy-extensions==0.4.3
@@ -65,6 +68,7 @@ PyHamcrest==2.0.2
 PyJWT==1.7.1
 PyMySQL==0.9.3
 pyOpenSSL==19.1.0
+pyparsing==2.4.7
 pytesseract==0.3.8
 python-dateutil==2.8.2
 python-Levenshtein==0.12.2
@@ -98,6 +102,7 @@ uvloop==0.14.0
 videocr==0.1.6
 virtualenv==20.0.20
 virtualenv-clone==0.5.4
+watchdog==2.1.5
 websockets==8.1
 Werkzeug==1.0.0
 wrapt==1.11.2
