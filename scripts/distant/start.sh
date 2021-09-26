@@ -10,4 +10,4 @@ else
   exit -1
 fi
 source $DIR/../../.venv/bin/activate
-python3 com/leo/koreanparser/main.py $DIR/.env
+python3 com/leo/koreanparser/main.py --conf $DIR/.env
