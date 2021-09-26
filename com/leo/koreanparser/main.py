@@ -40,8 +40,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Démarrage du pipeline d'extraction de sous-titres")
     parser.add_argument('--conf', dest='conf_path', help='Path to conf', required=True)
     args = parser.parse_args()
-    print(args)
-    print(args.conf_path)
     load_dotenv(args.conf_path)
     income_dir = os.getenv("income_dir")
     model_dir = os.getenv("model_dir")
