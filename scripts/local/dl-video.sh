@@ -16,6 +16,7 @@ function process_file() {
     if [[ "$answer" = "y" ]]; then
       echo "Copie du fichier sur le serveur"
       scp $file $distant_server:$distant_income_dir
+      ssh $distant_server "touch $distant_income_dir/$file.ready"
       if [[ $? -eq 0 ]]; then
         echo "Copie réalisée avec succès @ $distant_server:$distant_income_dir"
         read -p "Supprimer le fichier local $file ? [Y/n] " answer
