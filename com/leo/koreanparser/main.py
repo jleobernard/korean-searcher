@@ -57,7 +57,9 @@ class Handler(FileSystemEventHandler):
             try:
                 self.treat_incoming_file(file_path)
             except:
-                print("Erreur")
+                print("-"*60)
+                traceback.print_exc(file=sys.stdout)
+                print("-"*60)
 
     def treat_incoming_file(self, file_path):
         print(f"Treating file {file_path}")
