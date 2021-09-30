@@ -32,14 +32,13 @@ class IncomingVideoFileWatcher:
 
 class Handler(FileSystemEventHandler):
 
-    @staticmethod
-    def on_any_event(event: FileSystemEvent):
-        src_path = event.src_path
-        if not event.is_directory and event.event_type == EVENT_TYPE_CLOSED and src_path and src_path.endswith('.ready'):
-            file_path = src_path[:-6]
+    def on_any_event(self, event: FileSystemEvent):
+        ready_file_path = event.src_path
+        if not event.is_directory and event.event_type == EVENT_TYPE_CLOSED and ready_file_path and ready_file_path.endswith('.ready'):
+            file_path = ready_file_path[:-6]
             print(f"Treating file {file_path}")
-            os.remove(src_path)
-            os.remove(file_path)
+            os.remove(ready_file_path)
+
 
 
 if __name__ == '__main__':
