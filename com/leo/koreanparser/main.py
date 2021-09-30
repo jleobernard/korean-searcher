@@ -14,7 +14,7 @@ class IncomingVideoFileWatcher:
         self.observer = Observer()
 
     def run(self):
-        in_directory = os.getenv("in_directory")
+        in_directory = os.getenv("income_dir")
         work_directory = os.getenv("work_directory")
         skip_frames = os.getenv("skip_frames")
         event_handler = Handler(work_directory=work_directory, skip_frames=skip_frames)
