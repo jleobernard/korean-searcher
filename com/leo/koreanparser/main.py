@@ -6,7 +6,7 @@ from watchdog.events import FileSystemEventHandler, FileSystemEvent, EVENT_TYPE_
 import os
 from dotenv import load_dotenv
 import cv2
-import sys, traceback
+import sys, traceback, shutil
 
 
 
@@ -26,7 +26,7 @@ class IncomingVideoFileWatcher:
         print(f"Working with directory {work_directory}")
         try:
             while True:
-                time.sleep(5)
+                time.sleep(100)
         except:
             print("-"*60)
             traceback.print_exc(file=sys.stdout)
@@ -62,11 +62,20 @@ class Handler(FileSystemEventHandler):
                 print("-"*60)
 
     def treat_incoming_file(self, file_path):
+        print(f"Clean working directory {self.work_directory}")
+        with os.scandir(self.work_directory) as entries:
+            for entry in entries:
+                if entry.is_dir() and not entry.is_symlink():
+                    shutil.rmtree(entry.path)
+                else:
+                    os.remove(entry.path)
         print(f"Treating file {file_path}")
         self.split_file(file_path)
+        time.sleep(30)
 
     def split_file(self, file_path):
         print(f"Splitting file {file_path}")
+        filename_without_extension = os.path.splitext(os.path.basename(file_path))[0]
         cap = cv2.VideoCapture(file_path)
         i = 0
         stop_all = False
@@ -76,13 +85,13 @@ class Handler(FileSystemEventHandler):
                 if ret == False:
                     stop_all = True
             if not stop_all:
-                cv2.imwrite(f"{self.work_directory}/{args.prefix}-{str(i)}.jpg", frame)
+                cv2.imwrite(f"{self.work_directory}/{filename_without_extension}-{str(i)}.jpg", frame)
                 i += 1
                 if i % 10 == 0:
                     print(f"      Exported {i} frames")
         cap.release()
         cv2.destroyAllWindows()
-        print(f"End splitting file {file_path}")
+        print(f"End splitting file {file_path} into {self.work_directory}")
 
 
 if __name__ == '__main__':
