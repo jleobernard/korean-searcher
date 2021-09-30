@@ -6,6 +6,8 @@ from watchdog.events import FileSystemEventHandler, FileSystemEvent, EVENT_TYPE_
 import os
 from dotenv import load_dotenv
 import cv2
+import sys, traceback
+
 
 
 class IncomingVideoFileWatcher:
@@ -26,7 +28,9 @@ class IncomingVideoFileWatcher:
             while True:
                 time.sleep(5)
         except:
-            print("Error")
+            print("-"*60)
+            traceback.print_exc(file=sys.stdout)
+            print("-"*60)
         finally:
             self.observer.stop()
             self.observer.join()
