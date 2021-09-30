@@ -83,7 +83,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
     load_dotenv(args.conf_path)
     income_dir = os.getenv("income_dir")
-    work_dir = os.getenv("work_dir")
-    model_dir = os.getenv("model_dir")
-    watcher = IncomingVideoFileWatcher(income_dir, work_directory=work_dir)
+    watcher = IncomingVideoFileWatcher(income_dir)
     watcher.run(args)
