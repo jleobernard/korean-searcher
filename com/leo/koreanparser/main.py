@@ -40,7 +40,7 @@ class Handler(FileSystemEventHandler):
 
     def __init__(self, work_directory: string, skip_frames: int = 30):
         self.work_directory = work_directory
-        self.skip_frames = skip_frames
+        self.skip_frames = int(skip_frames)
         self.ensure_dir(work_directory)
         print(f"Work dir is {work_directory}")
 
