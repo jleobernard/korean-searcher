@@ -10,16 +10,18 @@ import cv2
 
 class IncomingVideoFileWatcher:
 
-    def __init__(self, in_directory: string, ):
+    def __init__(self):
         self.observer = Observer()
-        self.in_directory = in_directory
 
-    def run(self, conf):
-        event_handler = Handler(work_directory=conf.work_directory, skip_frames=conf.skip_frames)
-        self.observer.schedule(event_handler, self.in_directory, recursive=False)
+    def run(self):
+        in_directory = os.getenv("in_directory")
+        work_directory = os.getenv("work_directory")
+        skip_frames = os.getenv("skip_frames")
+        event_handler = Handler(work_directory=work_directory, skip_frames=skip_frames)
+        self.observer.schedule(event_handler, in_directory, recursive=False)
         self.observer.start()
-        print(f"Watching     directory {self.in_directory}")
-        print(f"Working with directory {conf.work_directory}")
+        print(f"Watching     directory {in_directory}")
+        print(f"Working with directory {work_directory}")
         try:
             while True:
                 time.sleep(5)
@@ -82,6 +84,5 @@ if __name__ == '__main__':
     parser.add_argument('--conf', dest='conf_path', help='Path to conf', required=True)
     args = parser.parse_args()
     load_dotenv(args.conf_path)
-    income_dir = os.getenv("income_dir")
-    watcher = IncomingVideoFileWatcher(income_dir)
-    watcher.run(args)
+    watcher = IncomingVideoFileWatcher()
+    watcher.run()
