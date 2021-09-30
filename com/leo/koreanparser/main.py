@@ -70,7 +70,6 @@ class Handler(FileSystemEventHandler):
                     os.remove(entry.path)
         print(f"Treating file {file_path}")
         self.split_file(file_path)
-        time.sleep(30)
 
     def split_file(self, file_path):
         print(f"Splitting file {file_path}")
