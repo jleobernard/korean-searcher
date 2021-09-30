@@ -3,10 +3,6 @@ import os
 
 import cv2
 
-def ensure_dir(file_path):
-    directory = os.path.dirname(file_path)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--file', dest='in_file',
@@ -19,7 +15,7 @@ args = parser.parse_args()
 # Opens the Video file
 out_dir = args.out_dir
 ensure_dir(out_dir)
-cap= cv2.VideoCapture(args.in_file)
+cap = cv2.VideoCapture(args.in_file)
 NB_FRAMES_SKIPPED = 30
 i=0
 while(cap.isOpened()):
