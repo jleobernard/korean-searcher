@@ -45,9 +45,8 @@ class Handler(FileSystemEventHandler):
         print(f"Work dir is {work_directory}")
 
     def ensure_dir(self, file_path):
-        directory = os.path.dirname(file_path)
-        print(f"Creating dir {directory}")
-        os.makedirs(directory, exist_ok=True)
+        print(f"Creating dir {file_path}")
+        os.makedirs(file_path, exist_ok=True)
 
     def on_any_event(self, event: FileSystemEvent):
         ready_file_path = event.src_path
