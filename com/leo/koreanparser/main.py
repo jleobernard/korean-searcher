@@ -46,7 +46,10 @@ class Handler(FileSystemEventHandler):
 
     def ensure_dir(self, file_path):
         directory = os.path.dirname(file_path)
-        if not os.path.exists(directory):
+        if os.path.exists(directory):
+            print(f"Directory {file_path} already exists")
+        else:
+            print(f"Creating dir {directory}")
             os.makedirs(directory)
 
     def on_any_event(self, event: FileSystemEvent):
