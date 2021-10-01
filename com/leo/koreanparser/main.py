@@ -6,9 +6,17 @@ from watchdog.events import FileSystemEventHandler, FileSystemEvent, EVENT_TYPE_
 import os
 from dotenv import load_dotenv
 import cv2
-import sys, traceback, shutil
+import sys, traceback, shutil, glob
+import pandas as pd
+import numpy as np
+import torch
+from com.leo.koreanparser.dl.conf import TARGET_HEIGHT, TARGET_WIDTH
+from com.leo.koreanparser.dl.model import get_model
+from com.leo.koreanparser.dl.predict import get_bb_from_bouding_boxes
 
-
+from com.leo.koreanparser.dl.utils.data_utils import read_image, SubsDataset
+from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
+from com.leo.koreanparser.dl.utils.train_utils import do_lod_specific_model
 
 class IncomingVideoFileWatcher:
 
@@ -19,11 +27,13 @@ class IncomingVideoFileWatcher:
         in_directory = os.getenv("income_dir")
         work_directory = os.getenv("work_directory")
         skip_frames = os.getenv("skip_frames")
-        event_handler = Handler(work_directory=work_directory, skip_frames=skip_frames)
+        model_path = os.getenv("model_path")
+        event_handler = Handler(work_directory=work_directory, skip_frames=skip_frames, weights_path=model_path)
         self.observer.schedule(event_handler, in_directory, recursive=False)
         self.observer.start()
         print(f"Watching     directory {in_directory}")
         print(f"Working with directory {work_directory}")
+        print(f"Loaded model           {model_path}")
         try:
             while True:
                 time.sleep(100)
@@ -38,10 +48,13 @@ class IncomingVideoFileWatcher:
 
 class Handler(FileSystemEventHandler):
 
-    def __init__(self, work_directory: string, skip_frames: int = 30):
+    def __init__(self, work_directory: string, weights_path: str, skip_frames: int = 30):
         self.work_directory = work_directory
         self.skip_frames = int(skip_frames)
         self.ensure_dir(work_directory)
+        self.threshold = 0.5
+        self.model = get_model(eval=True)
+        do_lod_specific_model(weights_path, self.model)
         print(f"Work dir is {work_directory}")
 
     def ensure_dir(self, file_path):
@@ -69,9 +82,10 @@ class Handler(FileSystemEventHandler):
                 else:
                     os.remove(entry.path)
         print(f"Treating file {file_path}")
-        self.split_file(file_path)
+        prefix_splitted: str = self.split_file(file_path)
+        annotation_file = self.create_annotations(prefix_splitted)
 
-    def split_file(self, file_path):
+    def split_file(self, file_path) -> str:
         print(f"Splitting file {file_path}")
         filename_without_extension = os.path.splitext(os.path.basename(file_path))[0]
         cap = cv2.VideoCapture(file_path)
@@ -86,10 +100,46 @@ class Handler(FileSystemEventHandler):
                 cv2.imwrite(f"{self.work_directory}/{filename_without_extension}-{str(i)}.jpg", frame)
                 i += 1
                 if i % 10 == 0:
-                    print(f"      Exported {i} frames")
+                    print(f"--- Exported {i} frames")
         cap.release()
         cv2.destroyAllWindows()
-        print(f"End splitting file {file_path} into {self.work_directory}")
+        print(f"End splitting file {file_path} into {self.work_directory} with prefix {filename_without_extension}")
+        return filename_without_extension
+
+    def create_annotations(self, prefix_splitted: str):
+        splitted_files = glob.glob(f"{self.work_directory}/{prefix_splitted}-*.jpg")
+        size = (TARGET_WIDTH, TARGET_HEIGHT)
+        data = []
+        i = 0
+        for splitted_file in splitted_files:
+            print(f"--- Reading splitted file {splitted_file}")
+            im = read_image(splitted_file)
+            print(f"------ Resizing")
+            im = cv2.resize(im, size)
+            resized_file_path = f"{self.work_directory}/{prefix_splitted}-resized-{i}"
+            cv2.imwrite(resized_file_path, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
+            test_ds = SubsDataset(pd.DataFrame([{'path': resized_file_path}])['path'], pd.DataFrame([{'bb': np.array([0, 0, 0, 0])}])['bb'], pd.DataFrame([{'y': [0]}])['y'])
+            x, y_class, y_bb = test_ds[0]
+            xx = to_best_device(torch.FloatTensor(x[None, ]))
+            print(f"------ Inference")
+            out_class, out_bb = self.model(xx)
+            class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
+            if class_hat[0][0] >= self.threshold:
+                bb_hat = out_bb.detach().cpu()
+                bounding_boxes = get_bb_from_bouding_boxes(bb_hat, height=TARGET_HEIGHT, width=TARGET_WIDTH)
+                bb = bounding_boxes[0]
+                data.extend([[resized_file_path, True, bb[0], bb[1], bb[2], bb[3]]])
+            else:
+                data.extend([[resized_file_path, False, 0, 0, 0, 0]])
+            print(f"--- Splitted file {splitted_file} treated")
+            os.remove(splitted_file)
+            i += 1
+        annotations = pd.DataFrame(columns=['filename', 'subs', 'x0', 'y0', 'x1', 'y1'], data=data)
+        annotations_file_path = f"{self.work_directory}/annotations_{prefix_splitted}.csv"
+        annotations.to_csv(annotations_file_path, encoding='utf-8')
+        return annotations_file_path
+
+
 
 
 if __name__ == '__main__':
