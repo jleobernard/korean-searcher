@@ -10,13 +10,13 @@ class MyModel(nn.Module):
 
     def __init__(self):
         super(MyModel, self).__init__()
-        resnet = models.resnet34(pretrained=True)
+        resnet = models.resnet50(pretrained=True)
         for param in resnet.parameters():
             param.requires_grad = True
         layers = list(resnet.children())[:8]
         self.features = nn.Sequential(*layers)
-        self.classifier = nn.Sequential(nn.Linear(512, 1024), nn.ReLU(), nn.Linear(1024, 1))
-        self.bb_regression = nn.Sequential(nn.Conv2d(kernel_size=(1, 1), in_channels=512, out_channels=6), nn.Sigmoid())
+        self.classifier = nn.Sequential(nn.Linear(2048, 1024), nn.ReLU(), nn.Linear(1024, 1))
+        self.bb_regression = nn.Sequential(nn.Conv2d(kernel_size=(1, 1), in_channels=2048, out_channels=6), nn.Sigmoid())
 
     def forward(self, x):
         x = self.features(x)

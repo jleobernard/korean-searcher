@@ -14,7 +14,7 @@ parser.add_argument('-p', '--prefix', dest='prefix',
 args = parser.parse_args()
 # Opens the Video file
 out_dir = args.out_dir
-ensure_dir(out_dir)
+os.makedirs(out_dir, exist_ok=True)
 cap = cv2.VideoCapture(args.in_file)
 NB_FRAMES_SKIPPED = 30
 i=0
