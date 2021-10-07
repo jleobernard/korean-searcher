@@ -286,9 +286,3 @@ def show_corner_bb(im, bb):
     plt.gca().add_patch(create_corner_rect(resized_bb))
     plt.show()
 
-def same_subs(expected_zone: numpy.ndarray, image_zone: numpy.ndarray) -> bool:
-    threshold = 200
-    expected_zone_thresholded = np.where(expected_zone > threshold, 1, 0)
-    image_zone_thresholded = np.where(image_zone > threshold , 1, 0)
-    ratio = (expected_zone_thresholded * image_zone_thresholded).sum() / expected_zone_thresholded.sum()
-    return ratio > 0.75
