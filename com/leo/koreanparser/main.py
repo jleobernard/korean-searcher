@@ -124,7 +124,7 @@ class Handler(FileSystemEventHandler):
                 resized_file_path = f"{self.work_directory}/{prefix_splitted}-resized-{i}.jpg"
                 cv2.imwrite(resized_file_path, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
                 test_ds = SubsDataset(pd.DataFrame([{'path': resized_file_path}])['path'], pd.DataFrame([{'bb': np.array([0, 0, 0, 0])}])['bb'], pd.DataFrame([{'y': [0]}])['y'])
-                x, y_class, y_bb = test_ds[0]
+                x, y_class, y_bb, _ = test_ds[0]
                 xx = to_best_device(torch.FloatTensor(x[None, ]))
                 print(f"------ Inference")
                 out_class, out_bb = self.model(xx)

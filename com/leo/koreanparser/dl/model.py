@@ -159,12 +159,25 @@ class ModelLoss:
             (new_tbs[:, 2] * width + new_tbs[:, 3]).unsqueeze(0)
         ], dim=0).transpose(0, 1)
         return corners
-"""
-ml = ModelLoss(width=0, height=0, weights=[])
-bbs = torch.tensor([
-    [0.5, 0.5, 0.9, 0.9],
-    [0.1, 0., 0.4, 0.4]
-])
-corners = ml.get_one_obj_target(bbs, 3, 2)
-print(corners)
-"""
+
+
+def get_bb_from_bouding_boxes(predicted, height: int, width: int):
+    """
+    :param predicted: Tensor of shape (B, 6, H, W)
+    :return: Tensor shape (B, 4)
+    """
+    B, N, H, W = predicted.shape
+    HxW = H * W
+    cell_height = height / H
+    cell_width = width / W
+    preds = predicted.reshape(B, N, HxW)
+    preds = preds.transpose(1, 2).contiguous() # B, H x W, N
+    _, indices_y = torch.max(preds[:, :, 0], dim=1)
+    _, indices_x = torch.max(preds[:, :, 3], dim=1)
+    origins = torch.cat(
+        [
+            torch.cat([torch.tensor([torch.floor(val / W), val % W]) + preds[i, val, 1:3] for i, val in enumerate(indices_y)]).unsqueeze(0),
+            torch.cat([torch.tensor([torch.floor(val / W), val % W]) + preds[i, val, 4:] for i, val in enumerate(indices_x)]).unsqueeze(0)
+        ], dim=1
+    )
+    return origins * torch.tensor([cell_height, cell_width, cell_height, cell_width])

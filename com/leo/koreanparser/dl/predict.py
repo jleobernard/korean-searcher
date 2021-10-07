@@ -5,32 +5,11 @@ import pandas as pd
 import torch
 
 from com.leo.koreanparser.dl.conf import TARGET_HEIGHT, TARGET_WIDTH
-from com.leo.koreanparser.dl.model import get_model
+from com.leo.koreanparser.dl.model import get_model, get_bb_from_bouding_boxes
 from com.leo.koreanparser.dl.utils.data_utils import read_image, SubsDataset, show_corner_bb
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
 from com.leo.koreanparser.dl.utils.train_utils import do_load_model, do_lod_specific_model
 
-
-def get_bb_from_bouding_boxes(predicted, height: int, width: int):
-    """
-    :param predicted: Tensor of shape (B, 6, H, W)
-    :return: Tensor shape (B, 4)
-    """
-    B, N, H, W = predicted.shape
-    HxW = H * W
-    cell_height = height / H
-    cell_width = width / W
-    preds = predicted.reshape(B, N, HxW)
-    preds = preds.transpose(1, 2).contiguous() # B, H x W, N
-    _, indices_y = torch.max(preds[:, :, 0], dim=1)
-    _, indices_x = torch.max(preds[:, :, 3], dim=1)
-    origins = torch.cat(
-        [
-            torch.cat([torch.tensor([torch.floor(val / W), val % W]) + preds[i, val, 1:3] for i, val in enumerate(indices_y)]).unsqueeze(0),
-            torch.cat([torch.tensor([torch.floor(val / W), val % W]) + preds[i, val, 4:] for i, val in enumerate(indices_x)]).unsqueeze(0)
-        ], dim=1
-    )
-    return origins * torch.tensor([cell_height, cell_width, cell_height, cell_width])
 
 if __name__ == '__main__':
 
