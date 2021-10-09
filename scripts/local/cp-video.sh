@@ -19,8 +19,8 @@ function process_file() {
       date >  $distant_income_dir/$file.ready
       if [[ $? -eq 0 ]]; then
         echo "Copie réalisée avec succès @ $distant_income_dir"
-        read -p "Supprimer le fichier local $file ? [Y/n] " answer
-        answer=${answer:-"y"}
+        read -p "Supprimer le fichier local $file ? [y/N] " answer
+        answer=${answer:-"n"}
         if [[ "$answer" = "y" ]]; then
           rm -f $file
           if [[ $? -eq 0 ]]; then
