@@ -88,9 +88,6 @@ six==1.14.0
 sklearn==0.0
 sqlparse==0.3.1
 starlette==0.13.2
-tensorboard==2.1.0
-tensorflow==2.1.0
-tensorflow-estimator==2.1.0
 termcolor==1.1.0
 toml==0.10.2
 torch==1.9.0
@@ -106,7 +103,6 @@ videocr==0.1.6
 virtualenv==20.0.20
 virtualenv-clone==0.5.4
 watchdog==2.1.5
-websockets==8.1
 Werkzeug==1.0.0
 wrapt==1.11.2
 zipp==3.1.0
