@@ -79,7 +79,7 @@ for i, elt in enumerate(subs_image):
 
 df_subs_group = pd.DataFrame(data={
     'frames': subs_frames_indices,
-    'filenames': filenames
+    'filename': filenames
 })
 
 df_subs_group.to_csv(f"{directory}/{prefix}-extraction.csv", encoding='utf-8')

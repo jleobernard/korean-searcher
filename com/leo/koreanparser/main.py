@@ -1,6 +1,10 @@
+import io
+import math
 import string
 import time
 import argparse
+
+from google.cloud import vision
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent, EVENT_TYPE_CLOSED, EVENT_TYPE_MODIFIED
 import os
@@ -17,6 +21,19 @@ from com.leo.koreanparser.dl.predict import get_bb_from_bouding_boxes
 from com.leo.koreanparser.dl.utils.data_utils import read_image, SubsDataset
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
 from com.leo.koreanparser.dl.utils.train_utils import do_lod_specific_model
+
+GOOGLE_MAX_HEIGHT = 2050
+GOOGLE_MAX_WIDTH = 1536
+NB_ROWS = 10
+NB_COLUMNS = 3
+COLUMN_HEIGHT = int(GOOGLE_MAX_HEIGHT / NB_ROWS)
+COLUMN_WIDTH = int(GOOGLE_MAX_WIDTH / NB_COLUMNS)
+
+class obj:
+    # constructor
+    def __init__(self, dict1):
+        self.__dict__.update(dict1)
+
 
 class IncomingVideoFileWatcher:
 
@@ -88,6 +105,7 @@ class Handler(FileSystemEventHandler):
         prefix_splitted: str = self.split_file(file_path)
         annotation_file, _ = self.create_annotations(prefix_splitted)
         annotation_file_extraction = self.extract_bounding_rects(annotation_file)
+        annotation_file_with_subs = self.add_subs(annotation_file_extraction, prefix_splitted)
         print(f"Done ! {file_path} treated")
 
 
@@ -222,11 +240,87 @@ class Handler(FileSystemEventHandler):
 
         df_subs_group = pd.DataFrame(data={
             'frames': subs_frames_indices,
-            'filenames': filenames
+            'filename': filenames
         })
         df_file_name = f"{self.work_directory}/{prefix}-extraction.csv"
         df_subs_group.to_csv(df_file_name, encoding='utf-8')
         return df_file_name
+
+    def add_subs(self, annotation_file_extraction: str, prefix: str) -> str:
+        df_annotations_in = pd.read_csv(annotation_file_extraction)
+        background_images = []
+        background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
+        row = 0
+        column = 0
+        has_data = False
+        subtitles_per_frame = []
+        nb_subs_for_page = 0
+        for i, annotation in df_annotations_in.iterrows():
+            y0 = row * COLUMN_HEIGHT
+            x0 = column * COLUMN_WIDTH
+            image_file_path = annotation['filename']
+            coloured_image = read_image(image_file_path)
+            height, width, _ = coloured_image.shape
+            ydelta = min(height, COLUMN_HEIGHT)
+            xdelta = min(width, COLUMN_WIDTH)
+            y1 = y0 + ydelta
+            x1 = x0 + xdelta
+            background_image[y0:y1, x0: x1, :] = coloured_image[:ydelta, :xdelta, :]
+            has_data = True
+            column += 1
+            nb_subs_for_page += 1
+            if column >= NB_COLUMNS:
+                column = 0
+                row += 1
+                if row >= NB_ROWS:
+                    background_images.append({'image': background_image, 'nb': nb_subs_for_page})
+                    nb_subs_for_page = 0
+                    background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
+                    has_data = False
+        if has_data:
+            background_images.append({'image': background_image, 'nb': nb_subs_for_page})
+
+        for i, bg in enumerate(background_images):
+            bg_image_path = f"{self.work_directory}/{i}.jpg"
+            cv2.imwrite(bg_image_path, bg['image'])
+            full_text_annotation = self.send_image_to_google(bg_image_path)
+            subs = self.get_texts(full_text_annotation)
+            for sub in subs[: bg['nb']]:
+                subtitles_per_frame.append(sub)
+
+        df_annotations_in['subs'] = subtitles_per_frame
+        df_annotations_in.to_csv(f"{self.work_directory}/{prefix}-with-subs.csv", encoding='utf-8')
+
+    def send_image_to_google(self, bg_image_path):
+        client = vision.ImageAnnotatorClient()
+        with io.open(bg_image_path, 'rb') as image_file:
+            content = image_file.read()
+        image = vision.Image(content=content)
+        response = client.document_text_detection(image=image)
+        return response.full_text_annotation
+
+    def get_block_coord(self, block) -> int:
+        bounding_box = block.bounding_box
+        first_vertex = bounding_box.vertices[0]
+        x0, y0 = first_vertex.x, first_vertex.y
+        row = int(math.floor(y0 / COLUMN_HEIGHT))
+        column = int(math.floor(x0 / COLUMN_WIDTH))
+        return row * NB_COLUMNS + column
+
+    def get_texts(self, document):
+        my_texts = [''] * (NB_ROWS * NB_COLUMNS)
+        for page in document.pages:
+            for block in page.blocks:
+                text = []
+                for paragraph in block.paragraphs:
+                    for word in paragraph.words:
+                        for symbol in word.symbols:
+                            if symbol.text:
+                                text.append(symbol.text)
+                if len(text) > 0:
+                    block_index = self.get_block_coord(block)
+                    my_texts[block_index] = ' '.join(text)
+        return my_texts
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Démarrage du pipeline d'extraction de sous-titres")
