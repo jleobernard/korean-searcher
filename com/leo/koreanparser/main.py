@@ -367,6 +367,7 @@ class Handler(FileSystemEventHandler):
         return file_with_subs_path
 
     def send_image_to_google(self, bg_image_path):
+        print(f"........... Appel à Google")
         client = vision.ImageAnnotatorClient()
         with io.open(bg_image_path, 'rb') as image_file:
             content = image_file.read()
@@ -391,10 +392,19 @@ class Handler(FileSystemEventHandler):
                     for word in paragraph.words:
                         for symbol in word.symbols:
                             if symbol.text:
-                                text.append(symbol.text)
+                                if hasattr(symbol, 'property') and hasattr(symbol.property, 'detectedBreak'):
+                                    detected_break = symbol.property.detectedBreak.type
+                                    if detected_break == 'LINE_BREAK':
+                                        break_symbol = '\n'
+                                    else:
+                                        break_symbol = ' '
+                                else:
+                                    break_symbol = ''
+                                if symbol.text:
+                                    text.append(f"{symbol.text}{break_symbol}")
                 if len(text) > 0:
                     block_index = self.get_block_coord(block)
-                    my_texts[block_index] = ' '.join(text)
+                    my_texts[block_index] = ''.join(text)
         return my_texts
 
 if __name__ == '__main__':
