@@ -1,4 +1,5 @@
 import io
+import json
 import math
 import string
 import time
@@ -45,11 +46,14 @@ class IncomingVideoFileWatcher:
         work_directory = os.getenv("work_directory")
         skip_frames = os.getenv("skip_frames")
         model_path = os.getenv("model_path")
-        event_handler = Handler(work_directory=work_directory, skip_frames=skip_frames, weights_path=model_path)
+        target_directory = os.getenv("target_directory")
+        event_handler = Handler(work_directory=work_directory, skip_frames=skip_frames, weights_path=model_path,
+                                target_directory=target_directory)
         self.observer.schedule(event_handler, in_directory, recursive=False)
         self.observer.start()
         print(f"Watching     directory {in_directory}")
         print(f"Working with directory {work_directory}")
+        print(f"Target       directory {target_directory}")
         print(f"Loaded model           {model_path}")
         try:
             while True:
@@ -65,10 +69,12 @@ class IncomingVideoFileWatcher:
 
 class Handler(FileSystemEventHandler):
 
-    def __init__(self, work_directory: string, weights_path: str, skip_frames: int = 30):
+    def __init__(self, work_directory: string, weights_path: str, target_directory: str, skip_frames: int = 30):
         self.work_directory = work_directory
+        self.target_directory = target_directory
         self.skip_frames = int(skip_frames)
         self.ensure_dir(work_directory)
+        self.ensure_dir(target_directory)
         self.threshold = 0.5
         self.model = get_model(eval=True)
         self.treated = set([])
@@ -102,12 +108,74 @@ class Handler(FileSystemEventHandler):
                 else:
                     os.remove(entry.path)
         print(f"Treating file {file_path}")
-        prefix_splitted: str = self.split_file(file_path)
-        annotation_file, _ = self.create_annotations(prefix_splitted)
-        annotation_file_extraction = self.extract_bounding_rects(annotation_file)
-        annotation_file_with_subs = self.add_subs(annotation_file_extraction, prefix_splitted)
-        print(f"Done ! {file_path} treated")
+        work_file_path = self.prepare_file(file_path)
+        if work_file_path:
+            prefix_splitted: str = self.split_file(work_file_path)
+            annotation_file, _ = self.create_annotations(prefix_splitted)
+            annotation_file_extraction = self.extract_bounding_rects(annotation_file)
+            annotation_file_with_subs = self.add_subs(annotation_file_extraction, prefix_splitted)
+            annotation_file_final = self.polish(annotation_file_with_subs, prefix_splitted, work_file_path)
+            self.move_products(prefix_splitted, [annotation_file_final, work_file_path, file_path])
+            print(f"Done ! {file_path} treated")
 
+    def move_products(self, prefix: str, products_path: [str]):
+        print(f"Moving products of {prefix} to {self.target_directory}")
+        dest_dir = f"{self.target_directory}/{prefix}"
+        self.ensure_dir(dest_dir)
+        for path in products_path:
+            file_name = os.path.basename(path)
+            os.rename(path, f"{dest_dir}/{file_name}")
+            print(f"------ {path} moved to {dest_dir}/{file_name}")
+
+    def polish(self, annotation_file_path: str, prefix: str, video_file_path: str):
+        print("Polishing of the file")
+        df_in = pd.read_csv(annotation_file_path)
+        video = cv2.VideoCapture(video_file_path)
+        fps = video.get(cv2.CAP_PROP_FPS)
+        spf = 1 / fps
+        spf_for_sampling_rate = self.skip_frames * spf
+
+        # Merge lines with same subs
+        data = []
+        curr_subs = None
+        curr_frame_start, curr_frame_end = None, None
+        for i, annotation in df_in.iterrows():
+            frames = json.loads(annotation['frames'])
+            subs = annotation['subs']
+            if curr_subs == subs:
+                curr_frame_end = frames[-1]
+            else:
+                if not curr_subs is None:
+                    data.append([curr_subs, curr_frame_start, curr_frame_end])
+                if pd.isna(subs):
+                    curr_frame_start = None
+                    curr_frame_end = None
+                    curr_subs = None
+                else:
+                    curr_frame_start = frames[0]
+                    curr_frame_end = frames[-1]
+                    curr_subs = subs
+        if not curr_subs is None:
+            data.append([curr_subs, curr_frame_start, curr_frame_end])
+        df = pd.DataFrame(columns=['subs', 'start', 'end'], data=data)
+        df['start'] = df['start'] * spf_for_sampling_rate
+        df['end'] = df['end'] * spf_for_sampling_rate
+        final_annotation_file_path = f"{self.work_directory}/{prefix}-final.csv"
+        df.to_csv(final_annotation_file_path)
+        return final_annotation_file_path
+
+
+    def prepare_file(self, file_path: str) -> str:
+        filename_without_extension = os.path.splitext(os.path.basename(file_path))[0]
+        out_file = f"{self.work_directory}/{filename_without_extension}.mp4"
+        print(f"Converting {file_path} into {out_file}")
+        os.system(f"ffmpeg -i {file_path} {out_file}")
+        if os.path.isfile(out_file):
+            print(f"Conversion successful")
+            return out_file
+        else:
+            print(f"Could not convert file")
+            return None
 
     def split_file(self, file_path) -> str:
         print(f"Splitting file {file_path}")
@@ -131,6 +199,7 @@ class Handler(FileSystemEventHandler):
         return filename_without_extension
 
     def create_annotations(self, prefix_splitted: str):
+        print("Predicting subs from video")
         size = (TARGET_WIDTH, TARGET_HEIGHT)
         data = []
         i = 0
@@ -173,7 +242,7 @@ class Handler(FileSystemEventHandler):
         return annotations_file_path, annotations
 
     def same_subs(self, expected_zone: np.ndarray, image_zone: np.ndarray) -> bool:
-        threshold = 200
+        threshold = 220
         expected_zone_thresholded = np.where(expected_zone > threshold, 1, 0)
         image_zone_thresholded = np.where(image_zone > threshold , 1, 0)
         ratio = (expected_zone_thresholded * image_zone_thresholded).sum() / (expected_zone_thresholded.sum() + 1e-6)
@@ -190,6 +259,7 @@ class Handler(FileSystemEventHandler):
         subs_frames_indices.append(curr_subs_frame_indices)
 
     def extract_bounding_rects(self, annotation_file_name) -> str:
+        print("Extract bounding rectangles")
         prefix = os.path.splitext(os.path.basename(annotation_file_name))[0]
         df_annotations_in = pd.read_csv(annotation_file_name)
         curr_bb = None
@@ -226,7 +296,7 @@ class Handler(FileSystemEventHandler):
                     first_bw_image = image
                     curr_bb = np.array([row['y0'], row['x0'],
                                         row['y1'], row['x1']])
-            elif len(curr_subs_frame_indices) > 0:
+            elif curr_subs_frame_indices is not None and len(curr_subs_frame_indices) > 0:
                 self.finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
 
         if not curr_subs_frame_indices is None:
@@ -247,6 +317,7 @@ class Handler(FileSystemEventHandler):
         return df_file_name
 
     def add_subs(self, annotation_file_extraction: str, prefix: str) -> str:
+        print("Adding subs")
         df_annotations_in = pd.read_csv(annotation_file_extraction)
         background_images = []
         background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
@@ -277,6 +348,8 @@ class Handler(FileSystemEventHandler):
                     nb_subs_for_page = 0
                     background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
                     has_data = False
+                    row = 0
+                    nb_subs_for_page = 0
         if has_data:
             background_images.append({'image': background_image, 'nb': nb_subs_for_page})
 
@@ -289,7 +362,9 @@ class Handler(FileSystemEventHandler):
                 subtitles_per_frame.append(sub)
 
         df_annotations_in['subs'] = subtitles_per_frame
-        df_annotations_in.to_csv(f"{self.work_directory}/{prefix}-with-subs.csv", encoding='utf-8')
+        file_with_subs_path = f"{self.work_directory}/{prefix}-with-subs.csv"
+        df_annotations_in.to_csv(file_with_subs_path, encoding='utf-8')
+        return file_with_subs_path
 
     def send_image_to_google(self, bg_image_path):
         client = vision.ImageAnnotatorClient()

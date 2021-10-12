@@ -12,8 +12,8 @@ from com.leo.koreanparser.dl.utils.data_utils import read_image
 
 GOOGLE_MAX_HEIGHT = 2050
 GOOGLE_MAX_WIDTH = 1536
-NB_ROWS = 10
-NB_COLUMNS = 3
+NB_ROWS = 1
+NB_COLUMNS = 1
 COLUMN_HEIGHT = int(GOOGLE_MAX_HEIGHT / NB_ROWS)
 COLUMN_WIDTH = int(GOOGLE_MAX_WIDTH / NB_COLUMNS)
 
@@ -97,6 +97,8 @@ for i, annotation in df_annotations_in.iterrows():
             nb_subs_for_page = 0
             background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
             has_data = False
+            row = 0
+            nb_subs_for_page = 0
 if has_data:
     background_images.append({'image': background_image, 'nb': nb_subs_for_page})
 

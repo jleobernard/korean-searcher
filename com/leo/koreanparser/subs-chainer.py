@@ -8,7 +8,7 @@ from com.leo.koreanparser.dl.utils.data_utils import read_image
 
 
 def same_subs(expected_zone: np.ndarray, image_zone: np.ndarray) -> bool:
-    threshold = 200
+    threshold = 220
     expected_zone_thresholded = np.where(expected_zone > threshold, 1, 0)
     image_zone_thresholded = np.where(image_zone > threshold , 1, 0)
     ratio = (expected_zone_thresholded * image_zone_thresholded).sum() / (expected_zone_thresholded.sum() + 1e-6)
@@ -65,7 +65,7 @@ for index, row in df_annotations_in.iterrows():
             first_bw_image = image
             curr_bb = np.array([row['y0'], row['x0'],
                                 row['y1'], row['x1']])
-    elif len(curr_subs_frame_indices) > 0:
+    elif curr_subs_frame_indices is not None and len(curr_subs_frame_indices) > 0:
         finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
 
 if not curr_subs_frame_indices is None:
