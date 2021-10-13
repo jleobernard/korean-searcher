@@ -1,4 +1,4 @@
-from com.leo.koreanparser.main import find_pattern_in_local_db
+from com.leo.koreanparser.parser_main import find_pattern_in_local_db
 
 from konlpy.tag import Komoran
 
@@ -16,6 +16,9 @@ user_query = "<VSTEM>(으)ㄴ 지 <WORDS> 되다"
 komoran = Komoran()
 
 search_pattern = SearchPattern("여기는 <VSTEM> (교실) <WORDS> 입니다", komoran)
+
+print(komoran.pos("하긴뭐,우리문영이가애고어른이고할거없이"))
+exit(0)
 
 assert not search_pattern.matches(komoran.pos("여기는 교실 입니다."))
 assert search_pattern.matches(komoran.pos("여기는 모르 입니다."))
