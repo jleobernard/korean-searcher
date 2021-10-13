@@ -15,7 +15,7 @@ def same_subs(expected_zone: np.ndarray, image_zone: np.ndarray) -> bool:
     return ratio > 0.75
 
 
-annotation_file_name = "/opt/data/korean-subs/work/annotations_okay-not-okay.csv"
+annotation_file_name = "/opt/data/korean-subs/work/annotations_okay-not-okay-ep02-0.csv"
 prefix = os.path.splitext(os.path.basename(annotation_file_name))[0]
 directory = Path(annotation_file_name).resolve().parent
 df_annotations_in = pd.read_csv(annotation_file_name)
@@ -67,6 +67,7 @@ for index, row in df_annotations_in.iterrows():
                                 row['y1'], row['x1']])
     elif curr_subs_frame_indices is not None and len(curr_subs_frame_indices) > 0:
         finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
+        curr_subs_frame_indices = None
 
 if not curr_subs_frame_indices is None:
     finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)

@@ -1,4 +1,5 @@
 import io
+import json
 import math
 import os
 from pathlib import Path
@@ -23,7 +24,7 @@ class obj:
         self.__dict__.update(dict1)
 
 def get_block_coord(block) -> int:
-    bounding_box = block.bounding_box
+    bounding_box = block.boundingBox
     first_vertex = bounding_box.vertices[0]
     x0, y0 = first_vertex.x, first_vertex.y
     row = int(math.floor(y0 / COLUMN_HEIGHT))
@@ -38,16 +39,24 @@ def get_texts(document):
             for paragraph in block.paragraphs:
                 for word in paragraph.words:
                     for symbol in word.symbols:
+                        if hasattr(symbol, 'property') and hasattr(symbol.property, 'detectedBreak'):
+                            detected_break = symbol.property.detectedBreak.type
+                            if detected_break == 'LINE_BREAK':
+                                break_symbol = '\n'
+                            else:
+                                break_symbol = ' '
+                        else:
+                            break_symbol = ''
                         if symbol.text:
-                            text.append(symbol.text)
+                            text.append(f"{symbol.text}{break_symbol}")
             if len(text) > 0:
                 block_index = get_block_coord(block)
-                my_texts[block_index] = ' '.join(text)
+                my_texts[block_index] = ''.join(text)
     return my_texts
 
 def send_image_to_google(bg_image_path):
-    #google_vision_response_file = "/opt/projetcs/ich/korean-searcher/com/leo/koreanparser/full-text-annotation.json"
-    #return json.load(open(google_vision_response_file, 'r'), object_hook=obj).fullTextAnnotation
+    google_vision_response_file = "/opt/projetcs/ich/korean-searcher/com/leo/koreanparser/full-text-annotation.json"
+    return json.load(open(google_vision_response_file, 'r'), object_hook=obj).fullTextAnnotation
     client = vision.ImageAnnotatorClient()
     with io.open(bg_image_path, 'rb') as image_file:
         content = image_file.read()
@@ -58,7 +67,7 @@ def send_image_to_google(bg_image_path):
     return response.full_text_annotation
 
 
-annotation_file_name = "/opt/data/korean-subs/work/annotations_okay-not-okay-extraction.csv"
+annotation_file_name = "/opt/data/korean-subs/work/annotations_okay-not-okay-ep02-0-extraction.csv"
 prefix = os.path.splitext(os.path.basename(annotation_file_name))[0]
 directory = Path(annotation_file_name).resolve().parent
 df_annotations_in = pd.read_csv(annotation_file_name)
@@ -105,6 +114,7 @@ if has_data:
 for i, bg in enumerate(background_images):
     bg_image_path = f"/tmp/{i}.jpg"
     cv2.imwrite(bg_image_path, bg['image'])
+    continue
     full_text_annotation = send_image_to_google(bg_image_path)
     subs = get_texts(full_text_annotation)
     for sub in subs[: bg['nb']]:

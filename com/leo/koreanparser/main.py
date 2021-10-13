@@ -111,7 +111,7 @@ class Handler(FileSystemEventHandler):
         work_file_path = self.prepare_file(file_path)
         if work_file_path:
             prefix_splitted: str = self.split_file(work_file_path)
-            annotation_file, _ = self.create_annotations(prefix_splitted)
+            annotation_file = self.create_annotations(prefix_splitted)
             annotation_file_extraction = self.extract_bounding_rects(annotation_file)
             annotation_file_with_subs = self.add_subs(annotation_file_extraction, prefix_splitted)
             annotation_file_final = self.polish(annotation_file_with_subs, prefix_splitted, work_file_path)
@@ -168,78 +168,83 @@ class Handler(FileSystemEventHandler):
     def prepare_file(self, file_path: str) -> str:
         filename_without_extension = os.path.splitext(os.path.basename(file_path))[0]
         out_file = f"{self.work_directory}/{filename_without_extension}.mp4"
-        print(f"Converting {file_path} into {out_file}")
-        os.system(f"ffmpeg -i {file_path} {out_file}")
-        if os.path.isfile(out_file):
-            print(f"Conversion successful")
+        if os.path.exists(out_file):
+            print("File already converted")
             return out_file
         else:
-            print(f"Could not convert file")
-            return None
+            print(f"Converting {file_path} into {out_file}")
+            os.system(f"ffmpeg -i {file_path} {out_file}")
+            if os.path.isfile(out_file):
+                print(f"Conversion successful")
+                return out_file
+            else:
+                print(f"Could not convert file")
+                return None
 
     def split_file(self, file_path) -> str:
         print(f"Splitting file {file_path}")
         filename_without_extension = os.path.splitext(os.path.basename(file_path))[0]
-        cap = cv2.VideoCapture(file_path)
-        i = 0
-        stop_all = False
-        while cap.isOpened() and not stop_all:
-            for j in range(0, self.skip_frames):
-                ret, frame = cap.read()
-                if ret == False:
-                    stop_all = True
-            if not stop_all:
-                cv2.imwrite(f"{self.work_directory}/{filename_without_extension}-{str(i)}.jpg", frame)
-                i += 1
-                if i % 10 == 0:
-                    print(f"--- Exported {i} frames")
-        cap.release()
-        cv2.destroyAllWindows()
-        print(f"End splitting file {file_path} into {self.work_directory} with prefix {filename_without_extension}")
+        if os.path.exists(f"{self.work_directory}/{filename_without_extension}-0.jpg"):
+            print(f"--- File already splitted")
+        else:
+            cap = cv2.VideoCapture(file_path)
+            i = 0
+            stop_all = False
+            while cap.isOpened() and not stop_all:
+                for j in range(0, self.skip_frames):
+                    ret, frame = cap.read()
+                    if ret == False:
+                        stop_all = True
+                if not stop_all:
+                    cv2.imwrite(f"{self.work_directory}/{filename_without_extension}-{str(i)}.jpg", frame)
+                    i += 1
+                    if i % 10 == 0:
+                        print(f"--- Exported {i} frames")
+            cap.release()
+            cv2.destroyAllWindows()
+            print(f"End splitting file {file_path} into {self.work_directory} with prefix {filename_without_extension}")
         return filename_without_extension
 
     def create_annotations(self, prefix_splitted: str):
         print("Predicting subs from video")
-        size = (TARGET_WIDTH, TARGET_HEIGHT)
-        data = []
-        i = 0
-        while True:
-            splitted_file = f"{self.work_directory}/{prefix_splitted}-{i}.jpg"
-            if os.path.exists(splitted_file):
-                #print(f"--- Reading splitted file {splitted_file}")
-                im = read_image(splitted_file)
-                #print(f"------ Resizing")
-                im = cv2.resize(im, size)
-                resized_file_path = f"{self.work_directory}/{prefix_splitted}-resized-{i}.jpg"
-                cv2.imwrite(resized_file_path, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
-                test_ds = SubsDataset(pd.DataFrame([{'path': resized_file_path}])['path'], pd.DataFrame([{'bb': np.array([0, 0, 0, 0])}])['bb'], pd.DataFrame([{'y': [0]}])['y'])
-                x, y_class, y_bb, _ = test_ds[0]
-                xx = to_best_device(torch.FloatTensor(x[None, ]))
-                #print(f"------ Inference")
-                out_class, out_bb = self.model(xx)
-                class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
-                if class_hat[0][0] >= self.threshold:
-                    bb_hat = out_bb.detach().cpu()
-                    bounding_boxes = get_bb_from_bouding_boxes(bb_hat, height=TARGET_HEIGHT, width=TARGET_WIDTH)
-                    bb = bounding_boxes[0].numpy()
-                    y0 = int(np.floor(min(bb[0], bb[2])))
-                    y1 = int(np.ceil(max(bb[0], bb[2])))
-                    x0 = int(np.floor(min(bb[1], bb[3])))
-                    x1 = int(np.ceil(max(bb[1], bb[3])))
-                    data.extend([[resized_file_path, True, x0, y0, x1, y1, class_hat[0][0]]])
-                else:
-                    data.extend([[resized_file_path, False, 0, 0, 0, 0, class_hat[0][0]]])
-                #print(f"--- Splitted file {splitted_file} treated")
-                os.remove(splitted_file)
-            else:
-                print(f"--- inference done on {i} files")
-                #print(f"--- Splitted file {splitted_file} does not exist so we will stop")
-                break
-            i += 1
-        annotations = pd.DataFrame(columns=['filename', 'subs', 'x0', 'y0', 'x1', 'y1', 'p'], data=data)
         annotations_file_path = f"{self.work_directory}/annotations_{prefix_splitted}.csv"
-        annotations.to_csv(annotations_file_path, encoding='utf-8')
-        return annotations_file_path, annotations
+        if os.path.exists(annotations_file_path):
+            print("--- subs prediction already done")
+        else:
+            size = (TARGET_WIDTH, TARGET_HEIGHT)
+            data = []
+            i = 0
+            while True:
+                splitted_file = f"{self.work_directory}/{prefix_splitted}-{i}.jpg"
+                if os.path.exists(splitted_file):
+                    im = read_image(splitted_file)
+                    im = cv2.resize(im, size)
+                    resized_file_path = f"{self.work_directory}/{prefix_splitted}-resized-{i}.jpg"
+                    cv2.imwrite(resized_file_path, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
+                    test_ds = SubsDataset(pd.DataFrame([{'path': resized_file_path}])['path'], pd.DataFrame([{'bb': np.array([0, 0, 0, 0])}])['bb'], pd.DataFrame([{'y': [0]}])['y'])
+                    x, y_class, y_bb, _ = test_ds[0]
+                    xx = to_best_device(torch.FloatTensor(x[None, ]))
+                    out_class, out_bb = self.model(xx)
+                    class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
+                    if class_hat[0][0] >= self.threshold:
+                        bb_hat = out_bb.detach().cpu()
+                        bounding_boxes = get_bb_from_bouding_boxes(bb_hat, height=TARGET_HEIGHT, width=TARGET_WIDTH)
+                        bb = bounding_boxes[0].numpy()
+                        y0 = int(np.floor(min(bb[0], bb[2])))
+                        y1 = int(np.ceil(max(bb[0], bb[2])))
+                        x0 = int(np.floor(min(bb[1], bb[3])))
+                        x1 = int(np.ceil(max(bb[1], bb[3])))
+                        data.extend([[resized_file_path, True, x0, y0, x1, y1, class_hat[0][0]]])
+                    else:
+                        data.extend([[resized_file_path, False, 0, 0, 0, 0, class_hat[0][0]]])
+                    os.remove(splitted_file)
+                else:
+                    print(f"--- inference done on {i} files")
+                    break
+                i += 1
+            annotations = pd.DataFrame(columns=['filename', 'subs', 'x0', 'y0', 'x1', 'y1', 'p'], data=data)
+            annotations.to_csv(annotations_file_path, encoding='utf-8')
+        return annotations_file_path
 
     def same_subs(self, expected_zone: np.ndarray, image_zone: np.ndarray) -> bool:
         threshold = 220
@@ -261,109 +266,116 @@ class Handler(FileSystemEventHandler):
     def extract_bounding_rects(self, annotation_file_name) -> str:
         print("Extract bounding rectangles")
         prefix = os.path.splitext(os.path.basename(annotation_file_name))[0]
-        df_annotations_in = pd.read_csv(annotation_file_name)
-        curr_bb = None
-        first_image = None
-        first_bw_image = None
-        subs_frames_indices = []
-        subs_image = []
-        curr_subs_frame_indices = None
-        old_index = -1
-        for index, row in df_annotations_in.iterrows():
-            if row['subs']:
-                image_index = row[0]
-                coloured_image = read_image(row['filename'])
-                image = cv2.cvtColor(coloured_image, cv2.COLOR_BGR2GRAY)
-                start_of_frame = True
-                if old_index == image_index - 1 and not curr_bb is None:
-                    image_zone = first_bw_image[curr_bb[0]: curr_bb[2], curr_bb[1]: curr_bb[3]]
-                    curr_zone = np.array(image[curr_bb[0]: curr_bb[2], curr_bb[1]: curr_bb[3]])
-                    if self.same_subs(curr_zone, image_zone):
-                        image_bb = np.array([row['y0'], row['x0'],
-                                             row['y1'], row['x1']])
-                        curr_bb = np.array([min(curr_bb[0], image_bb[0]), min(curr_bb[1], image_bb[1]),
-                                            max(curr_bb[2], image_bb[2]), max(curr_bb[3], image_bb[3])])
-                        curr_subs_frame_indices.append(image_index)
-                        start_of_frame = False
+        df_file_name = f"{self.work_directory}/{prefix}-extraction.csv"
+        if os.path.exists(df_file_name):
+            print("--- Bounding boxes already extracted")
+        else:
+            df_annotations_in = pd.read_csv(annotation_file_name)
+            curr_bb = None
+            first_image = None
+            first_bw_image = None
+            subs_frames_indices = []
+            subs_image = []
+            curr_subs_frame_indices = None
+            old_index = -1
+            for index, row in df_annotations_in.iterrows():
+                if row['subs']:
+                    image_index = row[0]
+                    coloured_image = read_image(row['filename'])
+                    image = cv2.cvtColor(coloured_image, cv2.COLOR_BGR2GRAY)
+                    start_of_frame = True
+                    if old_index == image_index - 1 and not curr_bb is None:
+                        image_zone = first_bw_image[curr_bb[0]: curr_bb[2], curr_bb[1]: curr_bb[3]]
+                        curr_zone = np.array(image[curr_bb[0]: curr_bb[2], curr_bb[1]: curr_bb[3]])
+                        if self.same_subs(curr_zone, image_zone):
+                            image_bb = np.array([row['y0'], row['x0'],
+                                                 row['y1'], row['x1']])
+                            curr_bb = np.array([min(curr_bb[0], image_bb[0]), min(curr_bb[1], image_bb[1]),
+                                                max(curr_bb[2], image_bb[2]), max(curr_bb[3], image_bb[3])])
+                            curr_subs_frame_indices.append(image_index)
+                            start_of_frame = False
+                            old_index = image_index
+                        else:
+                            self.finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
+                            start_of_frame = True
+                    if start_of_frame:
+                        curr_subs_frame_indices = [image_index]
                         old_index = image_index
-                    else:
-                        self.finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
-                        start_of_frame = True
-                if start_of_frame:
-                    curr_subs_frame_indices = [image_index]
-                    old_index = image_index
-                    first_image = coloured_image
-                    first_bw_image = image
-                    curr_bb = np.array([row['y0'], row['x0'],
-                                        row['y1'], row['x1']])
-            elif curr_subs_frame_indices is not None and len(curr_subs_frame_indices) > 0:
+                        first_image = coloured_image
+                        first_bw_image = image
+                        curr_bb = np.array([row['y0'], row['x0'],
+                                            row['y1'], row['x1']])
+                elif curr_subs_frame_indices is not None and len(curr_subs_frame_indices) > 0:
+                    self.finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
+                    curr_subs_frame_indices = None
+
+            if not curr_subs_frame_indices is None:
                 self.finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
 
-        if not curr_subs_frame_indices is None:
-            self.finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
+            filenames = []
+            for i, elt in enumerate(subs_image):
+                filename = f"{self.work_directory}/{prefix}-extraction-{i}.jpg"
+                filenames.append(filename)
+                cv2.imwrite(filename, elt)
 
-        filenames = []
-        for i, elt in enumerate(subs_image):
-            filename = f"{self.work_directory}/{prefix}-extraction-{i}.jpg"
-            filenames.append(filename)
-            cv2.imwrite(filename, elt)
-
-        df_subs_group = pd.DataFrame(data={
-            'frames': subs_frames_indices,
-            'filename': filenames
-        })
-        df_file_name = f"{self.work_directory}/{prefix}-extraction.csv"
-        df_subs_group.to_csv(df_file_name, encoding='utf-8')
+            df_subs_group = pd.DataFrame(data={
+                'frames': subs_frames_indices,
+                'filename': filenames
+            })
+            df_subs_group.to_csv(df_file_name, encoding='utf-8')
         return df_file_name
 
     def add_subs(self, annotation_file_extraction: str, prefix: str) -> str:
         print("Adding subs")
-        df_annotations_in = pd.read_csv(annotation_file_extraction)
-        background_images = []
-        background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
-        row = 0
-        column = 0
-        has_data = False
-        subtitles_per_frame = []
-        nb_subs_for_page = 0
-        for i, annotation in df_annotations_in.iterrows():
-            y0 = row * COLUMN_HEIGHT
-            x0 = column * COLUMN_WIDTH
-            image_file_path = annotation['filename']
-            coloured_image = read_image(image_file_path)
-            height, width, _ = coloured_image.shape
-            ydelta = min(height, COLUMN_HEIGHT)
-            xdelta = min(width, COLUMN_WIDTH)
-            y1 = y0 + ydelta
-            x1 = x0 + xdelta
-            background_image[y0:y1, x0: x1, :] = coloured_image[:ydelta, :xdelta, :]
-            has_data = True
-            column += 1
-            nb_subs_for_page += 1
-            if column >= NB_COLUMNS:
-                column = 0
-                row += 1
-                if row >= NB_ROWS:
-                    background_images.append({'image': background_image, 'nb': nb_subs_for_page})
-                    nb_subs_for_page = 0
-                    background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
-                    has_data = False
-                    row = 0
-                    nb_subs_for_page = 0
-        if has_data:
-            background_images.append({'image': background_image, 'nb': nb_subs_for_page})
-
-        for i, bg in enumerate(background_images):
-            bg_image_path = f"{self.work_directory}/{i}.jpg"
-            cv2.imwrite(bg_image_path, bg['image'])
-            full_text_annotation = self.send_image_to_google(bg_image_path)
-            subs = self.get_texts(full_text_annotation)
-            for sub in subs[: bg['nb']]:
-                subtitles_per_frame.append(sub)
-
-        df_annotations_in['subs'] = subtitles_per_frame
         file_with_subs_path = f"{self.work_directory}/{prefix}-with-subs.csv"
-        df_annotations_in.to_csv(file_with_subs_path, encoding='utf-8')
+        if os.path.exists(file_with_subs_path):
+            print("--- Subs already added")
+        else:
+            df_annotations_in = pd.read_csv(annotation_file_extraction)
+            background_images = []
+            background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
+            row = 0
+            column = 0
+            has_data = False
+            subtitles_per_frame = []
+            nb_subs_for_page = 0
+            for i, annotation in df_annotations_in.iterrows():
+                y0 = row * COLUMN_HEIGHT
+                x0 = column * COLUMN_WIDTH
+                image_file_path = annotation['filename']
+                coloured_image = read_image(image_file_path)
+                height, width, _ = coloured_image.shape
+                ydelta = min(height, COLUMN_HEIGHT)
+                xdelta = min(width, COLUMN_WIDTH)
+                y1 = y0 + ydelta
+                x1 = x0 + xdelta
+                background_image[y0:y1, x0: x1, :] = coloured_image[:ydelta, :xdelta, :]
+                has_data = True
+                column += 1
+                nb_subs_for_page += 1
+                if column >= NB_COLUMNS:
+                    column = 0
+                    row += 1
+                    if row >= NB_ROWS:
+                        background_images.append({'image': background_image, 'nb': nb_subs_for_page})
+                        nb_subs_for_page = 0
+                        background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
+                        has_data = False
+                        row = 0
+                        nb_subs_for_page = 0
+            if has_data:
+                background_images.append({'image': background_image, 'nb': nb_subs_for_page})
+
+            for i, bg in enumerate(background_images):
+                bg_image_path = f"{self.work_directory}/{i}.jpg"
+                cv2.imwrite(bg_image_path, bg['image'])
+                full_text_annotation = self.send_image_to_google(bg_image_path)
+                subs = self.get_texts(full_text_annotation)
+                for sub in subs[: bg['nb']]:
+                    subtitles_per_frame.append(sub)
+
+            df_annotations_in['subs'] = subtitles_per_frame
+            df_annotations_in.to_csv(file_with_subs_path, encoding='utf-8')
         return file_with_subs_path
 
     def send_image_to_google(self, bg_image_path):
