@@ -1,4 +1,5 @@
 import io
+import itertools
 import json
 import math
 import string
@@ -22,6 +23,10 @@ from com.leo.koreanparser.dl.predict import get_bb_from_bouding_boxes
 from com.leo.koreanparser.dl.utils.data_utils import read_image, SubsDataset
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
 from com.leo.koreanparser.dl.utils.train_utils import do_lod_specific_model
+from konlpy.tag import Komoran
+import logging
+
+logging.basicConfig(format='%(asctime)s[%(levelname)s] %(message)s', level=logging.DEBUG)
 
 GOOGLE_MAX_HEIGHT = 2050
 GOOGLE_MAX_WIDTH = 1536
@@ -79,6 +84,9 @@ class Handler(FileSystemEventHandler):
         self.model = get_model(eval=True)
         self.treated = set([])
         do_lod_specific_model(weights_path, self.model)
+        logging.info("Loading Komoran...")
+        self.analyzer = Komoran()
+        logging.info("...Komoran loaded")
 
     def ensure_dir(self, file_path):
         os.makedirs(file_path, exist_ok=True)
@@ -100,6 +108,7 @@ class Handler(FileSystemEventHandler):
                 os.remove(ready_file_path)
 
     def treat_incoming_file(self, file_path):
+        """
         print(f"Clean working directory {self.work_directory}")
         with os.scandir(self.work_directory) as entries:
             for entry in entries:
@@ -107,61 +116,89 @@ class Handler(FileSystemEventHandler):
                     shutil.rmtree(entry.path)
                 else:
                     os.remove(entry.path)
-        print(f"Treating file {file_path}")
+        """
+        logging.info(f"Treating file {file_path}")
         work_file_path = self.prepare_file(file_path)
         if work_file_path:
             prefix_splitted: str = self.split_file(work_file_path)
             annotation_file = self.create_annotations(prefix_splitted)
             annotation_file_extraction = self.extract_bounding_rects(annotation_file)
             annotation_file_with_subs = self.add_subs(annotation_file_extraction, prefix_splitted)
-            annotation_file_final = self.polish(annotation_file_with_subs, prefix_splitted, work_file_path)
+            annotation_file_polished = self.polish(annotation_file_with_subs, prefix_splitted, work_file_path)
+            annotation_file_final = self.parse_korean(annotation_file_polished, prefix_splitted)
             self.move_products(prefix_splitted, [annotation_file_final, work_file_path, file_path])
-            print(f"Done ! {file_path} treated")
+            logging.info(f"Done ! {file_path} treated")
 
     def move_products(self, prefix: str, products_path: [str]):
-        print(f"Moving products of {prefix} to {self.target_directory}")
+        logging.info(f"Moving products of {prefix} to {self.target_directory}")
         dest_dir = f"{self.target_directory}/{prefix}"
         self.ensure_dir(dest_dir)
         for path in products_path:
             file_name = os.path.basename(path)
             os.rename(path, f"{dest_dir}/{file_name}")
-            print(f"------ {path} moved to {dest_dir}/{file_name}")
+            logging.info(f"------ {path} moved to {dest_dir}/{file_name}")
+
+    def parse_korean(self, annotation_file_path: str, prefix: str) -> str:
+        logging.info("Parsing korean subs")
+        final_annotation_file_path = f"{self.work_directory}/{prefix}.csv"
+        df_in = pd.read_csv(annotation_file_path)
+        extends = []
+        nb_lines = len(df_in)
+        for i, row in df_in.iterrows():
+            parsed = self.analyzer.pos(row['subs'])
+            extension = []
+            for p in parsed:
+                extension.append(p[0])
+                extension.append(p[1])
+            extends.append(extension)
+            if (i + 1) % 100 == 0:
+                logging.debug(f"{i + 1} / {nb_lines} subs analyzed")
+
+        extends = np.array(list(zip(*itertools.zip_longest(*extends, fillvalue=''))))
+        nb_extra_columns = len(extends[0])
+        for i in range(nb_extra_columns):
+            df_in[f"parsed_{i}"] = extends[:, i]
+        df_in.to_csv(final_annotation_file_path, encoding='utf-8')
+        return final_annotation_file_path
 
     def polish(self, annotation_file_path: str, prefix: str, video_file_path: str):
         print("Polishing of the file")
-        df_in = pd.read_csv(annotation_file_path)
-        video = cv2.VideoCapture(video_file_path)
-        fps = video.get(cv2.CAP_PROP_FPS)
-        spf = 1 / fps
-        spf_for_sampling_rate = self.skip_frames * spf
+        final_annotation_file_path = f"{self.work_directory}/{prefix}-polished.csv"
+        if os.path.exists(final_annotation_file_path):
+            print("--- Polishing already done")
+        else:
+            df_in = pd.read_csv(annotation_file_path)
+            video = cv2.VideoCapture(video_file_path)
+            fps = video.get(cv2.CAP_PROP_FPS)
+            spf = 1 / fps
+            spf_for_sampling_rate = self.skip_frames * spf
 
-        # Merge lines with same subs
-        data = []
-        curr_subs = None
-        curr_frame_start, curr_frame_end = None, None
-        for i, annotation in df_in.iterrows():
-            frames = json.loads(annotation['frames'])
-            subs = annotation['subs']
-            if curr_subs == subs:
-                curr_frame_end = frames[-1]
-            else:
-                if not curr_subs is None:
-                    data.append([curr_subs, curr_frame_start, curr_frame_end])
-                if pd.isna(subs):
-                    curr_frame_start = None
-                    curr_frame_end = None
-                    curr_subs = None
-                else:
-                    curr_frame_start = frames[0]
+            # Merge lines with same subs
+            data = []
+            curr_subs = None
+            curr_frame_start, curr_frame_end = None, None
+            for i, annotation in df_in.iterrows():
+                frames = json.loads(annotation['frames'])
+                subs = annotation['subs']
+                if curr_subs == subs:
                     curr_frame_end = frames[-1]
-                    curr_subs = subs
-        if not curr_subs is None:
-            data.append([curr_subs, curr_frame_start, curr_frame_end])
-        df = pd.DataFrame(columns=['subs', 'start', 'end'], data=data)
-        df['start'] = df['start'] * spf_for_sampling_rate
-        df['end'] = df['end'] * spf_for_sampling_rate
-        final_annotation_file_path = f"{self.work_directory}/{prefix}-final.csv"
-        df.to_csv(final_annotation_file_path)
+                else:
+                    if not curr_subs is None:
+                        data.append([curr_subs, curr_frame_start, curr_frame_end])
+                    if pd.isna(subs):
+                        curr_frame_start = None
+                        curr_frame_end = None
+                        curr_subs = None
+                    else:
+                        curr_frame_start = frames[0]
+                        curr_frame_end = frames[-1]
+                        curr_subs = subs
+            if not curr_subs is None:
+                data.append([curr_subs, curr_frame_start, curr_frame_end])
+            df = pd.DataFrame(columns=['subs', 'start', 'end'], data=data)
+            df['start'] = df['start'] * spf_for_sampling_rate
+            df['end'] = df['end'] * spf_for_sampling_rate
+            df.to_csv(final_annotation_file_path)
         return final_annotation_file_path
 
 
