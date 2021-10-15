@@ -35,44 +35,14 @@ NB_COLUMNS = 3
 COLUMN_HEIGHT = int(GOOGLE_MAX_HEIGHT / NB_ROWS)
 COLUMN_WIDTH = int(GOOGLE_MAX_WIDTH / NB_COLUMNS)
 
+
 class obj:
     # constructor
     def __init__(self, dict1):
         self.__dict__.update(dict1)
 
 
-class IncomingVideoFileWatcher:
-
-    def __init__(self):
-        self.observer = Observer()
-
-    def run(self):
-        in_directory = os.getenv("income_dir")
-        work_directory = os.getenv("work_directory")
-        skip_frames = os.getenv("skip_frames")
-        model_path = os.getenv("model_path")
-        target_directory = os.getenv("target_directory")
-        event_handler = Handler(work_directory=work_directory, skip_frames=skip_frames, weights_path=model_path,
-                                target_directory=target_directory)
-        self.observer.schedule(event_handler, in_directory, recursive=False)
-        self.observer.start()
-        print(f"Watching     directory {in_directory}")
-        print(f"Working with directory {work_directory}")
-        print(f"Target       directory {target_directory}")
-        print(f"Loaded model           {model_path}")
-        try:
-            while True:
-                time.sleep(100)
-        except:
-            print("-"*60)
-            traceback.print_exc(file=sys.stdout)
-            print("-"*60)
-        finally:
-            self.observer.stop()
-            self.observer.join()
-
-
-class Handler(FileSystemEventHandler):
+class Handler():
 
     def __init__(self, work_directory: string, weights_path: str, target_directory: str, skip_frames: int = 30):
         self.work_directory = work_directory
@@ -87,36 +57,14 @@ class Handler(FileSystemEventHandler):
         logging.info("Loading Komoran...")
         self.analyzer = Komoran()
         logging.info("...Komoran loaded")
+        logging.info(f"Working with directory {work_directory}")
+        logging.info(f"Target       directory {target_directory}")
+        logging.info(f"Loaded model           {weights_path}")
 
     def ensure_dir(self, file_path):
         os.makedirs(file_path, exist_ok=True)
 
-    def on_any_event(self, event: FileSystemEvent):
-        ready_file_path = event.src_path
-        if not event.is_directory and \
-                (event.event_type == EVENT_TYPE_CLOSED or event.event_type == EVENT_TYPE_MODIFIED) \
-                and ready_file_path and ready_file_path.endswith('.ready') and not ready_file_path in self.treated:
-            self.treated.add(ready_file_path)
-            file_path = ready_file_path[:-6]
-            try:
-                self.treat_incoming_file(file_path)
-            except:
-                print("-"*60)
-                traceback.print_exc(file=sys.stdout)
-                print("-"*60)
-            finally:
-                os.remove(ready_file_path)
-
     def treat_incoming_file(self, file_path):
-        """
-        print(f"Clean working directory {self.work_directory}")
-        with os.scandir(self.work_directory) as entries:
-            for entry in entries:
-                if entry.is_dir() and not entry.is_symlink():
-                    shutil.rmtree(entry.path)
-                else:
-                    os.remove(entry.path)
-        """
         logging.info(f"Treating file {file_path}")
         work_file_path = self.prepare_file(file_path)
         if work_file_path:
@@ -459,7 +407,15 @@ class Handler(FileSystemEventHandler):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Démarrage du pipeline d'extraction de sous-titres")
     parser.add_argument('--conf', dest='conf_path', help='Path to conf', required=True)
+    parser.add_argument('--file', dest='file', help='Path to file to analyze', required=True)
     args = parser.parse_args()
     load_dotenv(args.conf_path)
-    watcher = IncomingVideoFileWatcher()
-    watcher.run()
+
+    in_directory = os.getenv("income_dir")
+    work_directory = os.getenv("work_directory")
+    skip_frames = os.getenv("skip_frames")
+    model_path = os.getenv("model_path")
+    target_directory = os.getenv("target_directory")
+    handler = Handler(work_directory=work_directory, skip_frames=int(skip_frames), weights_path=model_path,
+                      target_directory=target_directory)
+    handler.treat_incoming_file(args.file)
