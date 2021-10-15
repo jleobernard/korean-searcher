@@ -1,30 +1,26 @@
+import argparse
 import io
 import itertools
 import json
+import logging
 import math
-import string
-import time
-import argparse
-
-from google.cloud import vision
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileSystemEvent, EVENT_TYPE_CLOSED, EVENT_TYPE_MODIFIED
 import os
-from dotenv import load_dotenv
+import string
+
 import cv2
-import sys, traceback, shutil
-import pandas as pd
 import numpy as np
+import pandas as pd
 import torch
+from dotenv import load_dotenv
+from google.cloud import vision
+from konlpy.tag import Komoran
+
 from com.leo.koreanparser.dl.conf import TARGET_HEIGHT, TARGET_WIDTH
 from com.leo.koreanparser.dl.model import get_model
 from com.leo.koreanparser.dl.predict import get_bb_from_bouding_boxes
-
 from com.leo.koreanparser.dl.utils.data_utils import read_image, SubsDataset
 from com.leo.koreanparser.dl.utils.tensor_helper import to_best_device
 from com.leo.koreanparser.dl.utils.train_utils import do_lod_specific_model
-from konlpy.tag import Komoran
-import logging
 
 logging.basicConfig(format='%(asctime)s[%(levelname)s] %(message)s', level=logging.DEBUG)
 
