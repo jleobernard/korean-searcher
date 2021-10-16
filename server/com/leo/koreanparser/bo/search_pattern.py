@@ -15,7 +15,8 @@ def get_kw_and_replacement(keyword: str):
 
 
 def get_kw_from_replacement(replacement: str):
-    return [kw for kw, rpl in KEYWORDS_AND_REPLACEMENT if rpl == replacement][0]
+    replacements = [kw for kw, rpl in KEYWORDS_AND_REPLACEMENT if rpl == replacement]
+    return replacements[0] if len(replacements) > 0 else None
 
 
 KEYWORDS = ['<VSTEM>', '<ADJSTEM>', '≤NSTEM>', '<WORDS>', '<WORD>', '<VENDING>', '(', ')']
