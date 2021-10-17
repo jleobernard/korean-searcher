@@ -1,0 +1,16 @@
+version: '3'
+services:
+  kosubs:
+    build: ./docker
+    restart: always
+    environment:
+      - PYTHONPATH=/code/app
+    volumes:
+      - /opt/data/korean-subs/store:/store
+      - ./logs:/logs
+    ports:
+      - "172.17.0.1:8083:80"
+networks:
+  default:
+    external:
+      name: laflemme
