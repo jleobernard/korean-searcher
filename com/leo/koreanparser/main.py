@@ -31,6 +31,7 @@ NB_COLUMNS = 3
 COLUMN_HEIGHT = int(GOOGLE_MAX_HEIGHT / NB_ROWS)
 COLUMN_WIDTH = int(GOOGLE_MAX_WIDTH / NB_COLUMNS)
 
+BREAKS = vision.TextAnnotation.DetectedBreak.BreakType
 
 class obj:
     # constructor
@@ -330,7 +331,10 @@ class Handler():
                 xdelta = min(width, COLUMN_WIDTH)
                 y1 = y0 + ydelta
                 x1 = x0 + xdelta
-                background_image[y0:y1, x0: x1, :] = coloured_image[:ydelta, :xdelta, :]
+                # On part de en bas à droite et non en haut à gauche pour éviter les problèmes avec les images mal
+                # découpées (en bas à droite on a plus de chances de trouver des sous-titres que en haut à gauche dans
+                # une image mal découpée)
+                background_image[y0:y1, x0: x1, :] = coloured_image[-ydelta:, -xdelta:, :]
                 has_data = True
                 column += 1
                 nb_subs_for_page += 1
@@ -385,9 +389,16 @@ class Handler():
                     for word in paragraph.words:
                         for symbol in word.symbols:
                             if symbol.text:
-                                if hasattr(symbol, 'property') and hasattr(symbol.property, 'detectedBreak'):
-                                    detected_break = symbol.property.detectedBreak.type
-                                    if detected_break == 'LINE_BREAK':
+                                if hasattr(symbol, 'property') and \
+                                        (hasattr(symbol.property, 'detectedBreak') or
+                                         hasattr(symbol.property, 'detected_break')):
+                                    if hasattr(symbol.property, 'detectedBreak'):
+                                        detected_break = symbol.property.detectedBreak.type
+                                    else:
+                                        detected_break = symbol.property.detected_break.type_
+                                    if detected_break == BREAKS.UNKNOWN:
+                                        break_symbol = ''
+                                    elif detected_break == 'LINE_BREAK':
                                         break_symbol = '\n'
                                     else:
                                         break_symbol = ' '

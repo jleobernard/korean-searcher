@@ -13,8 +13,8 @@ from com.leo.koreanparser.dl.utils.data_utils import read_image
 
 GOOGLE_MAX_HEIGHT = 2050
 GOOGLE_MAX_WIDTH = 1536
-NB_ROWS = 1
-NB_COLUMNS = 1
+NB_ROWS = 10
+NB_COLUMNS = 3
 COLUMN_HEIGHT = int(GOOGLE_MAX_HEIGHT / NB_ROWS)
 COLUMN_WIDTH = int(GOOGLE_MAX_WIDTH / NB_COLUMNS)
 
@@ -94,7 +94,7 @@ for i, annotation in df_annotations_in.iterrows():
     xdelta = min(width, COLUMN_WIDTH)
     y1 = y0 + ydelta
     x1 = x0 + xdelta
-    background_image[y0:y1, x0: x1, :] = coloured_image[:ydelta, :xdelta, :]
+    background_image[y0:y1, x0: x1, :] = coloured_image[-ydelta:, -xdelta:, :]
     has_data = True
     column += 1
     nb_subs_for_page += 1
