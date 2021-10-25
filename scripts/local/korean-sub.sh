@@ -28,6 +28,11 @@ function process_file() {
         echo "Anaylse du fichier $file terminée"
         echo "Copie sur le serveur distant"
         rsync -vrza $target_directory/* $distant_server:$distant_target_directory
+        read -p "Recharger les sous-titres du serveur ? [Y/n] " answer
+        answer=${answer:-"y"}
+        if [[ "$answer" = "y" ]]; then
+          curl "$endpoint/api/kosubs:reload"
+        fi
         read -p "Supprimer les fichiers temporaires de $work_directory ? [y/N] " answer
         answer=${answer:-"n"}
         if [[ "$answer" = "y" ]]; then
