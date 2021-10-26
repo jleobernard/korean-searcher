@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import os
+import re
 import string
 
 import cv2
@@ -103,7 +104,7 @@ class Handler():
         nb_extra_columns = len(extends[0])
         for i in range(nb_extra_columns):
             df_in[f"parsed_{i}"] = extends[:, i]
-        df_in.to_csv(final_annotation_file_path, encoding='utf-8')
+        df_in.to_csv(final_annotation_file_path, encoding='utf-8', index=False)
         return final_annotation_file_path
 
     def polish(self, annotation_file_path: str, prefix: str, video_file_path: str):
@@ -143,7 +144,7 @@ class Handler():
             df = pd.DataFrame(columns=['subs', 'start', 'end'], data=data)
             df['start'] = df['start'] * spf_for_sampling_rate
             df['end'] = df['end'] * spf_for_sampling_rate
-            df.to_csv(final_annotation_file_path)
+            df.to_csv(final_annotation_file_path, index=False)
         return final_annotation_file_path
 
 
@@ -343,7 +344,6 @@ class Handler():
                     row += 1
                     if row >= NB_ROWS:
                         background_images.append({'image': background_image, 'nb': nb_subs_for_page})
-                        nb_subs_for_page = 0
                         background_image = np.full((GOOGLE_MAX_HEIGHT, GOOGLE_MAX_WIDTH, 3), 255)
                         has_data = False
                         row = 0
@@ -357,11 +357,19 @@ class Handler():
                 full_text_annotation = self.send_image_to_google(bg_image_path)
                 subs = self.get_texts(full_text_annotation)
                 for sub in subs[: bg['nb']]:
-                    subtitles_per_frame.append(sub)
+                    subtitles_per_frame.append(self.__clean_sub___(sub))
 
             df_annotations_in['subs'] = subtitles_per_frame
+            df_annotations_in = df_annotations_in[df_annotations_in.subs != '']
             df_annotations_in.to_csv(file_with_subs_path, encoding='utf-8')
         return file_with_subs_path
+
+    def __clean_sub___(self, subs: str) -> str:
+        subs = re.sub("\[.+?]", "", subs)
+        subs = re.sub("\[.+?", "", subs)
+        subs = re.sub("\(.+?\)", "", subs)
+        subs = re.sub("\(.+?", "", subs)
+        return subs.strip()
 
     def send_image_to_google(self, bg_image_path):
         print(f"........... Appel à Google")
@@ -380,7 +388,7 @@ class Handler():
         column = int(math.floor(x0 / COLUMN_WIDTH))
         return row * NB_COLUMNS + column
 
-    def get_texts(self, document):
+    def get_texts(self, document) -> str:
         my_texts = [''] * (NB_ROWS * NB_COLUMNS)
         for page in document.pages:
             for block in page.blocks:
