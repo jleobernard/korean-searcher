@@ -36,7 +36,7 @@ function process_file() {
         read -p "Supprimer les fichiers temporaires de $work_directory ? [y/N] " answer
         answer=${answer:-"n"}
         if [[ "$answer" = "y" ]]; then
-          rm -Rf $work_directory/*
+          find $work_directory -type f -exec rm -f {} \;
           if [[ $? -eq 0 ]]; then
             echo "Fichier temporaires supprimés"
           fi
