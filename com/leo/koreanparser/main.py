@@ -68,8 +68,7 @@ class Handler():
         if work_file_path:
             prefix_splitted: str = self.split_file(work_file_path)
             annotation_file = self.create_annotations(prefix_splitted)
-            annotation_file_extraction = self.extract_bounding_rects(annotation_file)
-            annotation_file_with_subs = self.add_subs(annotation_file_extraction, prefix_splitted)
+            annotation_file_with_subs = self.add_subs(annotation_file, prefix_splitted)
             annotation_file_polished = self.polish(annotation_file_with_subs, prefix_splitted, work_file_path)
             annotation_file_final = self.parse_korean(annotation_file_polished, prefix_splitted)
             self.move_products(prefix_splitted, [annotation_file_final, work_file_path, file_path])
@@ -165,6 +164,11 @@ class Handler():
                 return None
 
     def split_file(self, file_path) -> str:
+        """
+        Extract frames of the video at constant rate and output them to the work directory
+        :param file_path: Path of the video
+        :return: Prefix of the video file
+        """
         print(f"Splitting file {file_path}")
         filename_without_extension = os.path.splitext(os.path.basename(file_path))[0]
         if os.path.exists(f"{self.work_directory}/{filename_without_extension}-0.jpg"):
@@ -189,130 +193,100 @@ class Handler():
         return filename_without_extension
 
     def create_annotations(self, prefix_splitted: str):
-        print("Predicting subs from video")
+        """
+        Analyze splitted files to detect bounding boxes
+        :param prefix_splitted: Prefix of the files containing the frames of the video
+        :return: Path of the file containing the following columns
+        'filename', 'start', 'end'
+        filename: string, name of the file with the subs
+        start: int, index of the continuous series of frames containing the same subs
+        end: int, index of the continuous series of frames containing the same subs
+        """
+        logging.info("Predicting subs from video")
         annotations_file_path = f"{self.work_directory}/annotations_{prefix_splitted}.csv"
         if os.path.exists(annotations_file_path):
-            print("--- subs prediction already done")
+            logging.info("--- subs prediction already done")
         else:
             size = (TARGET_WIDTH, TARGET_HEIGHT)
             data = []
+            should_analyze_file = True
+            start = -1
             i = 0
+            x0 = -1
+            x1 = -1
+            y0 = -1
+            y1 = -1
+            current_file_path: str = None
+            current_zone: np.array = None
             while True:
                 splitted_file = f"{self.work_directory}/{prefix_splitted}-{i}.jpg"
                 if os.path.exists(splitted_file):
                     im = read_image(splitted_file)
                     im = cv2.resize(im, size)
-                    resized_file_path = f"{self.work_directory}/{prefix_splitted}-resized-{i}.jpg"
-                    cv2.imwrite(resized_file_path, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
-                    test_ds = SubsDataset(pd.DataFrame([{'path': resized_file_path}])['path'], pd.DataFrame([{'bb': np.array([0, 0, 0, 0])}])['bb'], pd.DataFrame([{'y': [0]}])['y'])
-                    x, y_class, y_bb, _ = test_ds[0]
-                    xx = to_best_device(torch.FloatTensor(x[None, ]))
-                    out_class, out_bb = self.model(xx)
-                    class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
-                    if class_hat[0][0] >= self.threshold:
-                        bb_hat = out_bb.detach().cpu()
-                        bounding_boxes = get_bb_from_bouding_boxes(bb_hat, height=TARGET_HEIGHT, width=TARGET_WIDTH)
-                        bb = bounding_boxes[0].numpy()
-                        y0 = int(np.floor(min(bb[0], bb[2])))
-                        y1 = int(np.ceil(max(bb[0], bb[2])))
-                        x0 = int(np.floor(min(bb[1], bb[3])))
-                        x1 = int(np.ceil(max(bb[1], bb[3])))
-                        data.extend([[resized_file_path, True, x0, y0, x1, y1, class_hat[0][0]]])
-                    else:
-                        data.extend([[resized_file_path, False, 0, 0, 0, 0, class_hat[0][0]]])
+                    if not should_analyze_file:
+                        #Check if the bounding boxes contain the same information
+                        image_zone = np.array(im[y0: y1, x0: x1])
+                        if not self.same_subs(current_zone, image_zone):
+                            # This is the end of the optimization for this sub
+                            should_analyze_file = True
+                            data.extend([[current_file_path, start, i - 1]])
+                            current_zone = None
+                            current_file_path = None
+                            start = None
+                        else:
+                            logging.debug(f"Optimize frame {i} with frame {start}")
+                    if should_analyze_file:
+                        resized_file_path = f"{self.work_directory}/{prefix_splitted}-resized-{i}.jpg"
+                        cv2.imwrite(resized_file_path, cv2.cvtColor(im, cv2.COLOR_RGB2BGR))
+                        test_ds = SubsDataset(pd.DataFrame([{'path': resized_file_path}])['path'], pd.DataFrame([{'bb': np.array([0, 0, 0, 0])}])['bb'], pd.DataFrame([{'y': [0]}])['y'])
+                        x, y_class, y_bb, _ = test_ds[0]
+                        xx = to_best_device(torch.FloatTensor(x[None, ]))
+                        out_class, out_bb = self.model(xx)
+                        class_hat = torch.sigmoid(out_class.detach().cpu()).numpy()
+                        if class_hat[0][0] >= self.threshold:
+                            bb_hat = out_bb.detach().cpu()
+                            bounding_boxes = get_bb_from_bouding_boxes(bb_hat, height=TARGET_HEIGHT, width=TARGET_WIDTH)
+                            bb = bounding_boxes[0].numpy()
+                            y0 = int(np.floor(min(bb[0], bb[2])))
+                            y1 = int(np.ceil(max(bb[0], bb[2])))
+                            x0 = int(np.floor(min(bb[1], bb[3])))
+                            x1 = int(np.ceil(max(bb[1], bb[3])))
+                            start = i
+                            should_analyze_file = False
+                            current_zone = np.array(im[y0: y1, x0: x1])
+                            current_file_path = f"{self.work_directory}/{prefix_splitted}-bounded-{i}.jpg"
+                            cv2.imwrite(current_file_path, current_zone)
+                        else:
+                            current_zone = None
+                            current_file_path = None
+                            start = None
+                        os.remove(resized_file_path)
                     os.remove(splitted_file)
                 else:
-                    print(f"--- inference done on {i} files")
+                    if current_zone is not None:
+                        data.extend([[current_file_path, start, i - 1]])
+                    logging.info(f"--- inference done on {i} files")
                     break
                 i += 1
-            annotations = pd.DataFrame(columns=['filename', 'subs', 'x0', 'y0', 'x1', 'y1', 'p'], data=data)
+                if i % 20:
+                    logging.debug(f"------ {i} files parsed")
+            annotations = pd.DataFrame(columns=['filename', 'start', 'end'], data=data)
             annotations.to_csv(annotations_file_path, encoding='utf-8')
         return annotations_file_path
 
-    def same_subs(self, expected_zone: np.ndarray, image_zone: np.ndarray) -> bool:
+    @staticmethod
+    def same_subs(expected_zone: np.ndarray, image_zone: np.ndarray) -> bool:
         threshold = 220
         expected_zone_thresholded = np.where(expected_zone > threshold, 1, 0)
         image_zone_thresholded = np.where(image_zone > threshold , 1, 0)
         ratio = (expected_zone_thresholded * image_zone_thresholded).sum() / (expected_zone_thresholded.sum() + 1e-6)
         return ratio > 0.75
 
-    def finish_frame(self, first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices):
-        delta = 10
-        max_height, max_width, _ = first_image.shape
-        y0 = max(0, curr_bb[0] - delta)
-        y1 = min(max_height, curr_bb[2] + delta)
-        x0 = max(0, curr_bb[1] - delta)
-        x1 = min(max_width, curr_bb[3] + delta)
-        subs_image.append(first_image[y0: y1, x0: x1])
-        subs_frames_indices.append(curr_subs_frame_indices)
-
-    def extract_bounding_rects(self, annotation_file_name) -> str:
-        print("Extract bounding rectangles")
-        prefix = os.path.splitext(os.path.basename(annotation_file_name))[0]
-        df_file_name = f"{self.work_directory}/{prefix}-extraction.csv"
-        if os.path.exists(df_file_name):
-            print("--- Bounding boxes already extracted")
-        else:
-            df_annotations_in = pd.read_csv(annotation_file_name)
-            curr_bb = None
-            first_image = None
-            first_bw_image = None
-            subs_frames_indices = []
-            subs_image = []
-            curr_subs_frame_indices = None
-            old_index = -1
-            for index, row in df_annotations_in.iterrows():
-                if row['subs']:
-                    image_index = row[0]
-                    coloured_image = read_image(row['filename'])
-                    image = cv2.cvtColor(coloured_image, cv2.COLOR_BGR2GRAY)
-                    start_of_frame = True
-                    if old_index == image_index - 1 and not curr_bb is None:
-                        image_zone = first_bw_image[curr_bb[0]: curr_bb[2], curr_bb[1]: curr_bb[3]]
-                        curr_zone = np.array(image[curr_bb[0]: curr_bb[2], curr_bb[1]: curr_bb[3]])
-                        if self.same_subs(curr_zone, image_zone):
-                            image_bb = np.array([row['y0'], row['x0'],
-                                                 row['y1'], row['x1']])
-                            curr_bb = np.array([min(curr_bb[0], image_bb[0]), min(curr_bb[1], image_bb[1]),
-                                                max(curr_bb[2], image_bb[2]), max(curr_bb[3], image_bb[3])])
-                            curr_subs_frame_indices.append(image_index)
-                            start_of_frame = False
-                            old_index = image_index
-                        else:
-                            self.finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
-                            start_of_frame = True
-                    if start_of_frame:
-                        curr_subs_frame_indices = [image_index]
-                        old_index = image_index
-                        first_image = coloured_image
-                        first_bw_image = image
-                        curr_bb = np.array([row['y0'], row['x0'],
-                                            row['y1'], row['x1']])
-                elif curr_subs_frame_indices is not None and len(curr_subs_frame_indices) > 0:
-                    self.finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
-                    curr_subs_frame_indices = None
-
-            if not curr_subs_frame_indices is None:
-                self.finish_frame(first_image, curr_bb, subs_image, subs_frames_indices, curr_subs_frame_indices)
-
-            filenames = []
-            for i, elt in enumerate(subs_image):
-                filename = f"{self.work_directory}/{prefix}-extraction-{i}.jpg"
-                filenames.append(filename)
-                cv2.imwrite(filename, elt)
-
-            df_subs_group = pd.DataFrame(data={
-                'frames': subs_frames_indices,
-                'filename': filenames
-            })
-            df_subs_group.to_csv(df_file_name, encoding='utf-8')
-        return df_file_name
-
     def add_subs(self, annotation_file_extraction: str, prefix: str) -> str:
-        print("Adding subs")
+        logging.info("Adding subs")
         file_with_subs_path = f"{self.work_directory}/{prefix}-with-subs.csv"
         if os.path.exists(file_with_subs_path):
-            print("--- Subs already added")
+            logging.info("--- Subs already added")
         else:
             df_annotations_in = pd.read_csv(annotation_file_extraction)
             background_images = []
