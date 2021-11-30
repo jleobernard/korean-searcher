@@ -107,10 +107,10 @@ class Handler():
         return final_annotation_file_path
 
     def polish(self, annotation_file_path: str, prefix: str, video_file_path: str):
-        print("Polishing of the file")
+        logging.info("Polishing of the file")
         final_annotation_file_path = f"{self.work_directory}/{prefix}-polished.csv"
         if os.path.exists(final_annotation_file_path):
-            print("--- Polishing already done")
+            logging.info("--- Polishing already done")
         else:
             df_in = pd.read_csv(annotation_file_path)
             video = cv2.VideoCapture(video_file_path)
@@ -123,10 +123,11 @@ class Handler():
             curr_subs = None
             curr_frame_start, curr_frame_end = None, None
             for i, annotation in df_in.iterrows():
-                frames = json.loads(annotation['frames'])
+                start = annotation['start']
+                end = annotation['end']
                 subs = annotation['subs']
                 if curr_subs == subs:
-                    curr_frame_end = frames[-1]
+                    curr_frame_end = end
                 else:
                     if not curr_subs is None:
                         data.append([curr_subs, curr_frame_start, curr_frame_end])
@@ -135,8 +136,8 @@ class Handler():
                         curr_frame_end = None
                         curr_subs = None
                     else:
-                        curr_frame_start = frames[0]
-                        curr_frame_end = frames[-1]
+                        curr_frame_start = start
+                        curr_frame_end = end
                         curr_subs = subs
             if not curr_subs is None:
                 data.append([curr_subs, curr_frame_start, curr_frame_end])
@@ -145,7 +146,6 @@ class Handler():
             df['end'] = df['end'] * spf_for_sampling_rate
             df.to_csv(final_annotation_file_path, index=False)
         return final_annotation_file_path
-
 
     def prepare_file(self, file_path: str) -> str:
         filename_without_extension = os.path.splitext(os.path.basename(file_path))[0]
@@ -268,7 +268,7 @@ class Handler():
                     logging.info(f"--- inference done on {i} files")
                     break
                 i += 1
-                if i % 20:
+                if i % 20 == 0:
                     logging.debug(f"------ {i} files parsed")
             annotations = pd.DataFrame(columns=['filename', 'start', 'end'], data=data)
             annotations.to_csv(annotations_file_path, encoding='utf-8')
@@ -358,9 +358,10 @@ class Handler():
         bounding_box = block.bounding_box
         first_vertex = bounding_box.vertices[0]
         x0, y0 = first_vertex.x, first_vertex.y
-        row = int(math.floor(y0 / COLUMN_HEIGHT))
-        column = int(math.floor(x0 / COLUMN_WIDTH))
-        return row * NB_COLUMNS + column
+        row = int(round(y0 / COLUMN_HEIGHT))
+        column = int(round(x0 / COLUMN_WIDTH))
+        index = min(row * NB_COLUMNS + column, NB_COLUMNS * NB_ROWS - 1)
+        return index
 
     def get_texts(self, document) -> str:
         my_texts = [''] * (NB_ROWS * NB_COLUMNS)
