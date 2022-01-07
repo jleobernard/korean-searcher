@@ -22,30 +22,19 @@ export GOOGLE_APPLICATION_CREDENTIALS="$gac"
 
 function process_file() {
     file=$1
-    read -p "Analyser le fichier $file ? [Y/n] " answer
-    answer=${answer:-"y"}
-    if [[ "$answer" = "y" ]]; then
-      python3 $project_path/com/leo/koreanparser/main.py --conf $my_env --file "$file"
-      if [[ $? -eq 0 ]]; then
-        echo "Anaylse du fichier $file terminée"
-        read -p "Recharger les sous-titres du serveur ? [Y/n] " answer
-        answer=${answer:-"y"}
-        if [[ "$answer" = "y" ]]; then
-          curl "$endpoint/api/kosubs:reload"
-        fi
-        read -p "Supprimer les fichiers temporaires de $work_directory ? [y/N] " answer
-        answer=${answer:-"n"}
-        if [[ "$answer" = "y" ]]; then
-          find $work_directory -type f -exec rm -f {} \;
-          if [[ $? -eq 0 ]]; then
-            echo "Fichier temporaires supprimés"
-          fi
-        fi
-      else
-          echo "Une erreur est survenue lors de l'analyse du fichier $file"
-      fi
+    echo "Analyser du fichier $file"
+    python3 $project_path/com/leo/koreanparser/main.py --conf $my_env --file "$file"
+    if [[ $? -eq 0 ]]; then
+      echo "Anaylse du fichier $file terminée"
+      echo "Recharge des sous-titres du serveur"
+      curl "$endpoint/api/kosubs:reload"
+      echo "Suppression des fichiers temporaires de $work_directory"
+      find $work_directory -type f -exec rm -f {} \;
+      echo "Suppression du fichier $file"
+      rm -f $file
+      echo "Fichiers temporaires supprimés"
     else
-      echo "Fichier ignoré ($file)"
+        echo "Une erreur est survenue lors de l'analyse du fichier $file"
     fi
 }
 cd $income_dir
