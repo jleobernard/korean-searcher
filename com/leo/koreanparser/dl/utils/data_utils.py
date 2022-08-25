@@ -18,6 +18,7 @@ from torch.utils.data import Dataset
 from com.leo.koreanparser.dl.conf import TARGET_WIDTH, TARGET_HEIGHT
 from com.leo.koreanparser.dl.utils.image_helper import normalize_imagenet
 from com.leo.koreanparser.dl.utils.subs_dataset import SegmentationSubsDataset
+from com.leo.koreanparser.dl.utils.path_utils import get_mask_name
 
 IMAGE_EXTENSIONS = ["jpg", "png"]
 CSV_ANNOTATION_COL_NAMES = ["label", "x0", "y0", "x1", "y1", "filename", "width", "height"]
@@ -85,16 +86,20 @@ def list_files(data_dir, file_types: Union[str, List[str]]):
     return [os.path.join(data_dir, f) for data_dir, directory_name,
                     files in os.walk(data_dir) for f in files if get_file_extension(f) in _fts]
 
+def write_mask(filename: str, height: int, width: int, top_left: Tuple[int, int], bottom_right: Tuple[int, int]):
+    mask_filename: str = get_mask_name(filename)
+    mask: np.ndarray = np.zeros((height, width))
+    mask[top_left[0]: bottom_right[0], top_left[1]: bottom_right[1]] = 255
+    cv2.imwrite(mask_filename, mask)
 
 def load_df(data_dir) -> pd.DataFrame:
     """
     :param data_dir: Where to look for data
     :return:
     """
-    annotations_with_subs: [pd.DataFrame] = []
+    annotations_with_subs: List[pd.DataFrame] = []
     annotation_files = list_files(data_dir, "csv")
     all_images = list_files(data_dir, IMAGE_EXTENSIONS)
-    # TODO create mask file if it does not exist
     for annotation_file in annotation_files:
         annotation_dir_path = os.path.dirname(os.path.realpath(annotation_file))
         annotation_data: DataFrame = pd.read_csv(annotation_file, names=CSV_ANNOTATION_COL_NAMES)
@@ -104,6 +109,9 @@ def load_df(data_dir) -> pd.DataFrame:
         annotation_data['subs'] = 1.
         del annotation_data['label']
         annotations_with_subs.append(annotation_data)
+        height, width, _ = cv2.imread(annotation_data.filename).shape
+        write_mask(annotation_data.filename, height, width, (annotation_data['x0'], annotation_data['y0']),
+        (annotation_data['x1'], annotation_data['y1']))
     concatenated_data = pd.concat(annotations_with_subs)
     unsubbed = pd.DataFrame(columns=['filename'], data=[os.path.realpath(f) for f in all_images])
     subbed_filenames = concatenated_data[['filename']].copy()

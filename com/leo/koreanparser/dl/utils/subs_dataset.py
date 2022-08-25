@@ -18,7 +18,7 @@ class SegmentationSubsDataset(Dataset):
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
 
-        image_path = row.filename
+        image_path = row.filename.absolute()
 
         image = cv2.imread(image_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
