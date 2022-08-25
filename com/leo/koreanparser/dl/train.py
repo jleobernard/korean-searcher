@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 from com.leo.koreanparser.dl.conf import TARGET_HEIGHT, TARGET_WIDTH
 from com.leo.koreanparser.dl.model import get_model, ModelLoss
-from com.leo.koreanparser.dl.utils.data_utils import load_train_data, parse_args, SubsDataset
+from com.leo.koreanparser.dl.utils.data_utils import load_datasets, parse_args, SubsDataset
 from com.leo.koreanparser.dl.utils.train_utils import train_epocs, do_load_model
 
 args = parse_args()
@@ -23,22 +23,19 @@ if load_model:
 else:
     model.initialize_weights()
 
-
-
-df_train = load_train_data(args["datadir"], args["working_dir"])
-df_train = df_train.reset_index()
-X = df_train[['new_path', 'new_bb']]
-Y = df_train['subs']
+trainset, validset = load_datasets(args["datadir"], args["working_dir"])
+#X = df_train[['new_path', 'new_bb']]
+#Y = df_train['subs']
 
 loss = ModelLoss([float(args['alpha']), float(args['beta']), float(args['gamma']), float(args['theta'])],
                  width=TARGET_WIDTH, height=TARGET_HEIGHT)
-X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2)
-train_ds = SubsDataset(X_train['new_path'], X_train['new_bb'], y_train, transforms=True)
-valid_ds = SubsDataset(X_val['new_path'], X_val['new_bb'], y_val)
+#X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2)
+#train_ds = SubsDataset(X_train['new_path'], X_train['new_bb'], y_train, transforms=True)
+#valid_ds = SubsDataset(X_val['new_path'], X_val['new_bb'], y_val)
 
 batch_size = int(args["batch_size"])
-train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True, drop_last=True)
-valid_dl = DataLoader(valid_ds, batch_size=batch_size, drop_last=True)
+train_dl = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+valid_dl = DataLoader(validset, batch_size=batch_size)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
