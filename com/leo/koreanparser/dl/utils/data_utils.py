@@ -3,7 +3,7 @@ import os
 import random
 import shutil
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Tuple
 
 import albumentations as A
 import cv2
@@ -238,7 +238,7 @@ def augment_dataset(df_train):
     return augmented_dataset
 
 
-def load_datasets(path: str, working_dir_path: str) -> tuple[SegmentationSubsDataset, SegmentationSubsDataset]:
+def load_datasets(path: str, working_dir_path: str) -> Tuple[SegmentationSubsDataset, SegmentationSubsDataset]:
     train_augs = A.Compose([
         A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         A.VerticalFlip(p=0.25),
