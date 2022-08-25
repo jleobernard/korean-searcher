@@ -3,8 +3,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from leo.koreanparser.dl.conf import TARGET_WIDTH, TARGET_HEIGHT
-from leo.koreanparser.dl.utils.path_utils import get_mask_name
+from com.leo.koreanparser.dl.conf import TARGET_WIDTH, TARGET_HEIGHT
+from com.leo.koreanparser.dl.utils.path_utils import get_mask_name
 
 class SegmentationSubsDataset(Dataset):
 
