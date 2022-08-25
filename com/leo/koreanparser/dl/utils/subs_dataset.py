@@ -18,6 +18,9 @@ class SegmentationSubsDataset(Dataset):
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
 
+        print(row)
+        print(row.filename)
+        print(type(row.filename))
         image_path = row.filename.absolute()
 
         image = cv2.imread(image_path)
