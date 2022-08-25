@@ -101,15 +101,16 @@ def load_df(data_dir) -> pd.DataFrame:
     annotation_files = list_files(data_dir, "csv")
     all_images = list_files(data_dir, IMAGE_EXTENSIONS)
     for annotation_file in annotation_files:
-        annotation_dir_path = os.path.dirname(os.path.realpath(annotation_file))
+        annotation_dir_path: str = os.path.dirname(os.path.realpath(annotation_file))
         annotation_data: DataFrame = pd.read_csv(annotation_file, names=CSV_ANNOTATION_COL_NAMES)
-        filename = annotation_dir_path + "/" + annotation_data.filename
+        filename: str = annotation_dir_path + "/" + annotation_data.filename
         annotation_data.filename = filename
         annotation_data['x1'] = annotation_data['x0'] + annotation_data['x1']
         annotation_data['y1'] = annotation_data['y0'] + annotation_data['y1']
         annotation_data['subs'] = 1.
         del annotation_data['label']
         annotations_with_subs.append(annotation_data)
+        print(filename)
         height, width, _ = cv2.imread(filename).shape
         write_mask(filename, height, width, (annotation_data['x0'], annotation_data['y0']),
         (annotation_data['x1'], annotation_data['y1']))
