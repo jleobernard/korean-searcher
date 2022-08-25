@@ -42,4 +42,4 @@ class SegmentationSubsDataset(Dataset):
         image = torch.Tensor(image) / 255.0
         mask = torch.round(torch.Tensor(mask) / 255.0)
 
-        return image, mask
+        return image, mask, row.subs
