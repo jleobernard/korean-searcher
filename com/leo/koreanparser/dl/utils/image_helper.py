@@ -22,4 +22,4 @@ class NormalizeInverse(torchvision.transforms.Normalize):
         super().__init__(mean=mean_inv, std=std_inv)
 
     def __call__(self, tensor):
-        return super().__call__(tensor.clone())
+        return super().__call__(tensor.clone() * 255.)
