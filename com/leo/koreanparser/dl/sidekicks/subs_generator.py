@@ -6,6 +6,8 @@ import random
 from tqdm import tqdm
 from PIL import Image, ImageDraw, ImageFont
 
+import pandas as pd
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -45,6 +47,7 @@ logging.info(f"{len(template_files)} template files available")
 logging.info(f"Listing fonts in {fonts_dir_path}")
 fonts = [ImageFont.truetype(f"{fonts_dir_path}/{f}", 60) for f in os.listdir(fonts_dir_path)]
 
+data = []
 for i in tqdm(range(int(args.nb_images))):
     nb_lines = random.randint(1, int(args.max_nb_lines))
     template_file = f"{template_dir}/{random.choice(template_files)}"
@@ -70,4 +73,8 @@ for i in tqdm(range(int(args.nb_images))):
                min(w, textbox[2] + random.randint(0, WIDTH_VARIATION)),
                min(h, textbox[3] + random.randint(0, HEIGHT_VARIATION)))
     cropped = template_img.crop(textbox)
-    cropped.save(f"{out_dir_path}/{i:03}.png", quality=100)
+    file_name = f"{i:04}.png"
+    cropped.save(f"{out_dir_path}/{file_name}", quality=100)
+    data.append([file_name, text])
+df = pd.DataFrame(data=data, columns=["file", "text"])
+df.to_csv(f"{out_dir_path}/groundtruth.csv", index=False)
