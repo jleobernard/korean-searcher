@@ -3,19 +3,22 @@ import os
 import random
 import shutil
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Tuple
 
+import albumentations as A
 import cv2
 import matplotlib.pyplot as plt
-import numpy
 import numpy as np
 import pandas as pd
 from PIL import Image
 from pandas import DataFrame
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 
 from com.leo.koreanparser.dl.conf import TARGET_WIDTH, TARGET_HEIGHT
 from com.leo.koreanparser.dl.utils.image_helper import normalize_imagenet
+from com.leo.koreanparser.dl.utils.subs_dataset import SegmentationSubsDataset
+from com.leo.koreanparser.dl.utils.path_utils import get_mask_name
 
 IMAGE_EXTENSIONS = ["jpg", "png"]
 CSV_ANNOTATION_COL_NAMES = ["label", "x0", "y0", "x1", "y1", "filename", "width", "height"]
@@ -83,24 +86,34 @@ def list_files(data_dir, file_types: Union[str, List[str]]):
     return [os.path.join(data_dir, f) for data_dir, directory_name,
                     files in os.walk(data_dir) for f in files if get_file_extension(f) in _fts]
 
+def write_mask(filename: str, height: int, width: int, top_left: Tuple[int, int], bottom_right: Tuple[int, int]):
+    mask_filename: str = get_mask_name(filename)
+    mask: np.ndarray = np.zeros((height, width))
+    mask[top_left[0]: bottom_right[0], top_left[1]: bottom_right[1]] = 255
+    cv2.imwrite(mask_filename, mask)
 
-def generate_train_df (data_dir):
+def load_df(data_dir) -> pd.DataFrame:
     """
     :param data_dir: Where to look for data
     :return:
     """
-    annotations_with_subs: [pd.DataFrame] = []
+    annotations_with_subs: List[pd.DataFrame] = []
     annotation_files = list_files(data_dir, "csv")
     all_images = list_files(data_dir, IMAGE_EXTENSIONS)
     for annotation_file in annotation_files:
-        annotation_dir_path = os.path.dirname(os.path.realpath(annotation_file))
+        annotation_dir_path: str = os.path.dirname(os.path.realpath(annotation_file))
         annotation_data: DataFrame = pd.read_csv(annotation_file, names=CSV_ANNOTATION_COL_NAMES)
-        annotation_data.filename = annotation_dir_path + "/" + annotation_data.filename
+        filename: str = annotation_dir_path + "/" + annotation_data.filename
+        annotation_data.filename = filename
         annotation_data['x1'] = annotation_data['x0'] + annotation_data['x1']
         annotation_data['y1'] = annotation_data['y0'] + annotation_data['y1']
         annotation_data['subs'] = 1.
         del annotation_data['label']
         annotations_with_subs.append(annotation_data)
+        print(filename)
+        height, width, _ = cv2.imread(filename).shape
+        write_mask(filename, height, width, (annotation_data['x0'], annotation_data['y0']),
+        (annotation_data['x1'], annotation_data['y1']))
     concatenated_data = pd.concat(annotations_with_subs)
     unsubbed = pd.DataFrame(columns=['filename'], data=[os.path.realpath(f) for f in all_images])
     subbed_filenames = concatenated_data[['filename']].copy()
@@ -108,9 +121,9 @@ def generate_train_df (data_dir):
     unsubbed[['x0', 'y0', 'x1', 'y1']] = 0
     unsubbed[['width', 'height']] = unsubbed['filename'].apply(lambda x: Image.open(x).size).tolist()
     unsubbed['subs'] = 0.
-    df_train = pd.concat([concatenated_data, unsubbed])
-    df_train['filename'] = df_train['filename'].apply(lambda x: Path(x))
-    return df_train
+    df = pd.concat([concatenated_data, unsubbed])
+    df['filename'] = df['filename'].apply(lambda x: Path(x))
+    return df
 
 
 def create_mask(bb, x):
@@ -235,9 +248,23 @@ def augment_dataset(df_train):
     return augmented_dataset
 
 
-def load_train_data(path, working_dir_path: str):
+def load_datasets(path: str, working_dir_path: str) -> Tuple[SegmentationSubsDataset, SegmentationSubsDataset]:
+    train_augs = A.Compose([
+        A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        A.VerticalFlip(p=0.25),
+        A.Resize(TARGET_HEIGHT, TARGET_WIDTH),
+    ])
+
+    valid_augs = A.Compose([
+        A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        A.Resize(TARGET_HEIGHT, TARGET_WIDTH),
+    ])
+
     print("Loading data....")
-    df_train = generate_train_df(path)
+    df = load_df(path)
+    train_df, valid_df = train_test_split(df, test_size=0.2, random_state=2912)
+    return SegmentationSubsDataset(train_df, train_augs), SegmentationSubsDataset(valid_df, valid_augs)
+    """
     new_paths = []
     new_bbs = []
     train_path_resized = Path(working_dir_path)
@@ -266,6 +293,7 @@ def load_train_data(path, working_dir_path: str):
     print("...data loaded")
     #return df_train.append(augmented)
     return df_train
+    """
 
 def show_sample_image(df_train: pd.DataFrame):
     #return
@@ -285,4 +313,3 @@ def show_corner_bb(im, bb):
     resized_bb = bb
     plt.gca().add_patch(create_corner_rect(resized_bb))
     plt.show()
-
