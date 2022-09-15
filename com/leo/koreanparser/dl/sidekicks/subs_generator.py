@@ -73,8 +73,8 @@ for i in tqdm(range(int(args.nb_images))):
                min(w, textbox[2] + random.randint(0, WIDTH_VARIATION)),
                min(h, textbox[3] + random.randint(0, HEIGHT_VARIATION)))
     cropped = template_img.crop(textbox)
-    file_name = f"{i:04}.png"
-    cropped.save(f"{out_dir_path}/{file_name}", quality=100)
+    file_name = f"{i:04}.jpg"
+    cropped.convert('RGB').save(f"{out_dir_path}/{file_name}", quality=100)
     data.append([file_name, text])
 df = pd.DataFrame(data=data, columns=["file", "text"])
 df.to_csv(f"{out_dir_path}/groundtruth.csv", index=False)
