@@ -136,3 +136,4 @@ com/leo/koreanparser/dl/data
 .conf
 .env
 out/
+._.DS_Store
