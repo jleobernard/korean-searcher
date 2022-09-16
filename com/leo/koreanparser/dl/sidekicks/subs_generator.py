@@ -20,9 +20,12 @@ parser.add_argument('--nb-subs', dest='nb_images', default=100,
                     help='Max learning rate')
 parser.add_argument('--max-nb-lines', dest='max_nb_lines', default=3,
                     help='Max number of lines')
+parser.add_argument('--quality', dest='quality', default=70,
+                    help='Image quality')
 
 args = parser.parse_args()
 
+quality = int(args.quality)
 CHARACTERS_PER_LINE = 10
 MAX_HEIGHT = 250
 MAX_WIDTH = 500
@@ -88,7 +91,7 @@ for i in tqdm(range(int(args.nb_images))):
                min(h, textbox[3] + random.randint(0, HEIGHT_VARIATION)))
     cropped = template_img.crop(textbox)
     file_name = f"{i:04}.jpg"
-    cropped.convert('RGB').save(f"{out_dir_path}/{file_name}", quality=100)
+    cropped.convert('RGB').save(f"{out_dir_path}/{file_name}", quality=quality)
     data.append([file_name, text])
 df = pd.DataFrame(data=data, columns=["file", "text"])
 df.to_csv(f"{out_dir_path}/groundtruth.csv", index=False)
