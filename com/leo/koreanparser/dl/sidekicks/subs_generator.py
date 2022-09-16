@@ -3,6 +3,8 @@ import shutil
 import logging
 import argparse
 import random
+from typing import List
+
 from tqdm import tqdm
 from PIL import Image, ImageDraw, ImageFont
 
@@ -27,6 +29,12 @@ MAX_WIDTH = 500
 HEIGHT_VARIATION = 100
 WIDTH_VARIATION = 100
 
+extras = [*' ,!?:']
+extras_weight = [4, 3, 1, 2, 1]
+vocab = [*'0123456789abcdefghijklmnopqrstuvwxyz']
+with open(f"{args.datadir}/wiki.ko.syl", mode='r', encoding='UTF8') as f:
+    vocab += f.read().splitlines()
+
 template_dir = f"{args.datadir}/templates"
 out_dir_path = f"{args.datadir}/out"
 fonts_dir_path = f"{args.datadir}/fonts"
@@ -47,7 +55,7 @@ logging.info(f"{len(template_files)} template files available")
 logging.info(f"Listing fonts in {fonts_dir_path}")
 fonts = [ImageFont.truetype(f"{fonts_dir_path}/{f}", 60) for f in os.listdir(fonts_dir_path)]
 
-data = []
+data: List[str] = []
 for i in tqdm(range(int(args.nb_images))):
     nb_lines = random.randint(1, int(args.max_nb_lines))
     template_file = f"{template_dir}/{random.choice(template_files)}"
@@ -56,12 +64,18 @@ for i in tqdm(range(int(args.nb_images))):
     start_index = random.randint(0, len_haystack - length_text)
     text = None
     for _ in range(nb_lines):
-        start = random.randint(0, len_haystack - CHARACTERS_PER_LINE - 1)
-        sub_text = haystack[start: start + random.randint(1, CHARACTERS_PER_LINE)]
+        nb_special = random.randint(0, 2)
+        nb_chars = random.randint(nb_special + 1, CHARACTERS_PER_LINE - nb_special - 1)
+        sub_text = random.sample(vocab, nb_chars)
+        last_inserted_special = 0
+        for j in range(nb_special):
+            last_inserted_special = random.randint(last_inserted_special + 1, len(sub_text) - (nb_special - j))
+            sub_text = sub_text[:last_inserted_special] + [random.choices(extras, extras_weight, k=1)[0]] + sub_text[last_inserted_special:]
+        str_sub_text = ''.join(sub_text)
         if text:
-            text += f"\n{sub_text}"
+            text += f"\n{str_sub_text}"
         else:
-            text = sub_text
+            text = str_sub_text
     template_img = Image.open(template_file)
     w, h = template_img.size
     draw = ImageDraw.Draw(template_img)
